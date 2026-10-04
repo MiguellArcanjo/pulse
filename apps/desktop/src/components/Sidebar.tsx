@@ -13,7 +13,10 @@ import {
 import type { CoreConnection, Heartbeat } from "@pulse/protocol";
 import { formatDuration } from "../format";
 
+export type Page = "overview" | "devices";
+
 interface NavItem {
+  page?: Page;
   label: string;
   hint: string;
   icon: LucideIcon;
@@ -22,8 +25,8 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: "Visão Geral", hint: "Saúde do PC", icon: LayoutDashboard },
-  { label: "Dispositivos", hint: "iPhone pareado", icon: Smartphone, milestone: "M2" },
+  { page: "overview", label: "Visão Geral", hint: "Saúde do PC", icon: LayoutDashboard },
+  { page: "devices", label: "Dispositivos", hint: "iPhone pareado", icon: Smartphone },
   { label: "Control", hint: "PC & Sistema", icon: Monitor, milestone: "M3" },
   { label: "Dev", hint: "Projetos & Claude", icon: Code2, milestone: "M4" },
   { label: "Browser", hint: "Navegador", icon: Globe, milestone: "M5" },
@@ -33,23 +36,31 @@ const NAV: NavItem[] = [
   { label: "Echo", hint: "IA & Análises", icon: Bot, milestone: "M9" },
 ];
 
-export function Sidebar(props: { connection: CoreConnection; heartbeat: Heartbeat | null }) {
-  const { connection, heartbeat } = props;
+export function Sidebar(props: {
+  connection: CoreConnection;
+  heartbeat: Heartbeat | null;
+  page: Page;
+  onNavigate: (page: Page) => void;
+}) {
+  const { connection, heartbeat, page, onNavigate } = props;
   const online = connection.state === "connected";
 
   return (
     <aside className="sidebar">
       <nav className="nav" aria-label="Módulos">
-        {NAV.map((item, i) => {
-          const active = i === 0;
+        {NAV.map((item) => {
+          const active = item.page === page;
           const Icon = item.icon;
+          const target = item.page;
           return (
-            <div
+            <button
+              type="button"
               key={item.label}
               className={`nav-item ${active ? "is-active" : ""} ${item.milestone ? "is-soon" : ""}`}
               aria-current={active ? "page" : undefined}
-              aria-disabled={item.milestone ? true : undefined}
+              disabled={!target}
               title={item.milestone ? `Chega no ${item.milestone}` : undefined}
+              onClick={() => target && onNavigate(target)}
             >
               <Icon size={18} strokeWidth={1.75} />
               <span className="nav-text">
@@ -57,7 +68,7 @@ export function Sidebar(props: { connection: CoreConnection; heartbeat: Heartbea
                 <span className="nav-hint">{item.hint}</span>
               </span>
               {item.milestone && <span className="nav-soon">{item.milestone}</span>}
-            </div>
+            </button>
           );
         })}
       </nav>

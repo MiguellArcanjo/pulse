@@ -1,11 +1,22 @@
 import type { LucideIcon } from "lucide-react";
-import { Activity as ActivityIcon, Cable, Power, PowerOff, Unplug } from "lucide-react";
+import {
+  Activity as ActivityIcon,
+  Ban,
+  Cable,
+  Power,
+  PowerOff,
+  QrCode,
+  ShieldX,
+  Smartphone,
+  Unplug,
+} from "lucide-react";
 import type { AuditItem } from "@pulse/protocol";
 import { formatTime } from "../format";
 
 const PRINCIPALS: Record<string, string> = {
   system: "Sistema",
   "local:desktop": "Pulse Desktop",
+  "remote:pairing": "iPhone (pareamento)",
 };
 
 const ACTIONS: Record<string, { title: string; icon: LucideIcon }> = {
@@ -13,7 +24,19 @@ const ACTIONS: Record<string, { title: string; icon: LucideIcon }> = {
   "core.stopped": { title: "Pulse Core encerrado", icon: PowerOff },
   "ipc.client_connected": { title: "Conexão local aberta", icon: Cable },
   "ipc.client_disconnected": { title: "Conexão local encerrada", icon: Unplug },
+  "pairing.created": { title: "QR de pareamento gerado", icon: QrCode },
+  "pairing.claimed": { title: "iPhone leu o QR", icon: Smartphone },
+  "pairing.claim_rejected": { title: "Pareamento com prova inválida", icon: ShieldX },
+  "pairing.denied": { title: "Pareamento recusado", icon: Ban },
+  "device.paired": { title: "Dispositivo autorizado", icon: Smartphone },
+  "device.revoked": { title: "Acesso de dispositivo revogado", icon: ShieldX },
 };
+
+function principalLabel(p: string): string {
+  if (PRINCIPALS[p]) return PRINCIPALS[p];
+  if (p.startsWith("device:")) return "iPhone";
+  return p;
+}
 
 const RESULTS: Record<string, string> = { ok: "OK", error: "Erro", denied: "Negado" };
 
@@ -42,7 +65,7 @@ export function Activity({ items }: { items: AuditItem[] }) {
                 <span className="activity-text">
                   <span className="activity-title">{known?.title ?? item.action}</span>
                   <span className="activity-sub">
-                    {PRINCIPALS[item.principal] ?? item.principal} · {item.permissionLevel}
+                    {principalLabel(item.principal)} · {item.permissionLevel}
                   </span>
                 </span>
                 <span className={`badge badge-${item.result}`}>{RESULTS[item.result] ?? item.result}</span>

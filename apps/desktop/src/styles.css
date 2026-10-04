@@ -569,3 +569,347 @@ h2 {
 ::-webkit-scrollbar-thumb:hover {
   background: #2a3653;
 }
+
+/* ---------- navegação como botões ---------- */
+
+button.nav-item {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+button.nav-item:hover:not(:disabled):not(.is-active) {
+  background: var(--card);
+  color: var(--text);
+}
+
+button.nav-item:disabled {
+  cursor: default;
+}
+
+button.nav-item:focus-visible,
+.btn:focus-visible,
+.icon-btn:focus-visible {
+  outline: 2px solid var(--blue-soft);
+  outline-offset: 2px;
+}
+
+/* ---------- utilitários ---------- */
+
+.small {
+  font-size: 12px;
+}
+
+.ok {
+  color: var(--green);
+}
+
+.accent {
+  color: var(--blue-soft);
+}
+
+/* ---------- botões ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--card-hover);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--blue) 85%, white);
+}
+
+.btn-danger {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+.btn-danger-ghost {
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 40%, transparent);
+  background: transparent;
+}
+
+.btn-danger-ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--card-hover);
+  color: var(--text);
+}
+
+/* ---------- página de dispositivos ---------- */
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-head h1 {
+  font-size: 22px;
+}
+
+.page-head p {
+  margin: 4px 0 0;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 36px 16px;
+  text-align: center;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+.device-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.device-card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.device-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.device-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #141d31;
+  color: var(--blue-soft);
+}
+
+.device-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.device-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.status-pill.is-online {
+  color: var(--green);
+  border-color: color-mix(in srgb, var(--green) 35%, transparent);
+}
+
+.device-meta {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.device-meta dt {
+  color: var(--text-dim);
+}
+
+.device-meta dd {
+  margin: 0;
+}
+
+.grants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.grant {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+  color: var(--blue-soft);
+}
+
+.device-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.revoked-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.revoked-list li {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-dim);
+}
+
+/* ---------- modal de pareamento ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 5, 12, 0.72);
+  display: grid;
+  place-items: center;
+  z-index: 10;
+}
+
+.modal {
+  width: min(440px, calc(100vw - 32px));
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  padding: 18px 20px 20px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.modal-header h2 {
+  font-size: 16px;
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.modal-body p {
+  margin: 0;
+}
+
+.qr-box {
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  line-height: 0;
+}
+
+.warn-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--amber);
+}
+
+.pair-ask {
+  font-size: 15px;
+}
+
+.pair-code {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  padding: 8px 18px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.modal-actions .btn {
+  min-width: 120px;
+}
+
+.device-actions .btn {
+  white-space: nowrap;
+}
+
+.device-actions .small {
+  flex: 1;
+  min-width: 0;
+}

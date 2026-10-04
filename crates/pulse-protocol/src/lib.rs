@@ -5,12 +5,13 @@
 //! `packages/protocol/src/generated` via `pnpm gen:protocol`.
 
 pub mod ipc;
+pub mod remote;
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 /// Versão do protocolo IPC. Incrementar em mudanças incompatíveis.
-pub const PROTOCOL_VERSION: u32 = 2;
+pub const PROTOCOL_VERSION: u32 = 3;
 
 /// Amostra periódica de saúde do PC emitida pelo Core.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -87,6 +88,42 @@ pub struct AuditItem {
     pub action: String,
     pub permission_level: String,
     pub result: String,
+}
+
+/// Ticket de pareamento criado no Desktop (contém o QR).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PairingTicket {
+    pub pairing_id: String,
+    /// Conteúdo do QR Code (`pulse://pair?...`).
+    pub qr_payload: String,
+    pub core_url: String,
+    #[ts(type = "number")]
+    pub expires_at_ms: u64,
+    /// Problemas detectados que impediriam o iPhone de alcançar o Core.
+    pub warnings: Vec<String>,
+}
+
+/// Um iPhone leu o QR e pede acesso.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PairingRequest {
+    pub pairing_id: String,
+    pub device_name: String,
+    pub device_model: String,
+    /// Código de 6 dígitos que deve ser igual ao mostrado no iPhone.
+    pub code: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PairingResolved {
+    pub pairing_id: String,
+    /// `approved` | `denied` | `expired`.
+    pub outcome: String,
 }
 
 /// Resposta de `GET /v1/health` na API remota. Pública: não expõe dados do PC.

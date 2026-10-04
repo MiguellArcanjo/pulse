@@ -4,7 +4,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AuditItem, CoreStatus, Heartbeat};
+use crate::remote::DeviceInfo;
+use crate::{AuditItem, CoreStatus, Heartbeat, PairingRequest, PairingResolved, PairingTicket};
 
 /// Tipo de cliente local. Determina o escopo do que ele pode pedir.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -39,6 +40,18 @@ pub enum Request {
     RecentAudit {
         limit: u32,
     },
+    /// Gera um QR de pareamento (válido por pouco tempo, uso único).
+    PairingCreate,
+    PairingApprove {
+        pairing_id: String,
+    },
+    PairingDeny {
+        pairing_id: String,
+    },
+    DevicesList,
+    DeviceRevoke {
+        device_id: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -46,6 +59,8 @@ pub enum Request {
 pub enum Topic {
     Heartbeat,
     Audit,
+    Pairing,
+    Devices,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -78,6 +93,9 @@ pub enum ResponseData {
     CoreStatus(CoreStatus),
     Subscribed { topics: Vec<Topic> },
     Audit(Vec<AuditItem>),
+    Pairing(PairingTicket),
+    Devices(Vec<DeviceInfo>),
+    Done,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -92,6 +110,9 @@ pub enum Event {
     Heartbeat(Heartbeat),
     /// Nova entrada gravada na auditoria.
     Audit(AuditItem),
+    PairingRequested(PairingRequest),
+    PairingResolved(PairingResolved),
+    DevicesChanged(Vec<DeviceInfo>),
 }
 
 impl Event {
@@ -99,6 +120,8 @@ impl Event {
         match self {
             Event::Heartbeat(_) => Topic::Heartbeat,
             Event::Audit(_) => Topic::Audit,
+            Event::PairingRequested(_) | Event::PairingResolved(_) => Topic::Pairing,
+            Event::DevicesChanged(_) => Topic::Devices,
         }
     }
 }

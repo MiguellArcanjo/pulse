@@ -1,18 +1,24 @@
 //! Pulse Core.
 //!
-//! Processo em segundo plano, na sessão do usuário. No M0 ele:
-//! - abre/migra o SQLite fora do repositório;
-//! - registra início/fim na auditoria;
-//! - publica um heartbeat (CPU/RAM) por segundo;
-//! - atende o Desktop pelo named pipe restrito ao usuário.
+//! Processo em segundo plano, na sessão do usuário. Ele:
+//! - abre/migra o SQLite fora do repositório e grava a auditoria;
+//! - publica um heartbeat (CPU/RAM/disco/rede) por segundo;
+//! - atende o Desktop pelo named pipe restrito ao usuário;
+//! - atende o iPhone pela API remota em 127.0.0.1 (publicada via tailscale serve):
+//!   pareamento, tokens por dispositivo e stream em tempo real.
 
+mod auth;
 mod ipc_server;
 mod metrics;
+mod pairing;
 mod paths;
+mod rate_limit;
 mod remote_api;
+mod state;
+mod tailscale;
 
-use std::sync::{Arc, Mutex};
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use pulse_db::{AuditResult, Db};
@@ -20,18 +26,10 @@ use pulse_ipc::{IpcError, Listener};
 use pulse_protocol::{ipc::Event, CoreStatus, PROTOCOL_VERSION};
 use tokio::sync::broadcast;
 
-pub struct State {
-    pub status: CoreStatus,
-    pub db: Mutex<Db>,
-    pub events: broadcast::Sender<Event>,
-}
+use crate::state::{now_ms, State};
 
-pub fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
-}
+const SWEEP_EVERY: Duration = Duration::from_secs(5);
+const PRUNE_EVERY: Duration = Duration::from_secs(3600);
 
 #[tokio::main]
 async fn main() {
@@ -85,12 +83,7 @@ async fn run() -> Result<()> {
         dev_mode: dev,
     };
 
-    let (events, _) = broadcast::channel(256);
-    let state = Arc::new(State {
-        status,
-        db: Mutex::new(db),
-        events: events.clone(),
-    });
+    let state = Arc::new(State::new(status, remote_port, db));
 
     state.audit("system", "core", "core.started", AuditResult::Ok);
     tracing::info!(
@@ -104,12 +97,37 @@ async fn run() -> Result<()> {
         "API remota: http://127.0.0.1:{remote_port} (somente local; publique com tailscale serve)"
     );
 
-    tokio::spawn(metrics::run(events, started));
+    tokio::spawn(metrics::run(state.events.clone(), started));
+    tokio::spawn(keep_latest_heartbeat(state.clone()));
+    tokio::spawn(housekeeping(state.clone()));
     tokio::spawn(ipc_server::serve(listener, state.clone()));
-    tokio::spawn(remote_api::serve(remote_listener));
+    tokio::spawn(remote_api::serve(remote_listener, state.clone()));
 
     tokio::signal::ctrl_c().await?;
     state.audit("system", "core", "core.stopped", AuditResult::Ok);
     tracing::info!("Pulse Core encerrado");
     Ok(())
+}
+
+/// Guarda o último heartbeat para o snapshot de `/v1/status` e do stream.
+async fn keep_latest_heartbeat(state: Arc<State>) {
+    let mut rx = state.events.subscribe();
+    loop {
+        match rx.recv().await {
+            Ok(Event::Heartbeat(hb)) => state.set_heartbeat(hb),
+            Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
+            Err(broadcast::error::RecvError::Closed) => break,
+        }
+    }
+}
+
+async fn housekeeping(state: Arc<State>) {
+    let mut sweep = tokio::time::interval(SWEEP_EVERY);
+    let mut prune = tokio::time::interval(PRUNE_EVERY);
+    loop {
+        tokio::select! {
+            _ = sweep.tick() => state.sweep(),
+            _ = prune.tick() => state.prune_tokens(),
+        }
+    }
 }

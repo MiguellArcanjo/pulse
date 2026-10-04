@@ -4,17 +4,17 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
-use pulse_db::{AuditEntry, AuditResult, PermissionLevel};
+use pulse_db::AuditResult;
 use pulse_ipc::{Channel, IpcError, Listener};
 use pulse_protocol::ipc::{
-    ClientKind, ClientMessage, Event, IpcError as WireError, Outcome, Request, ResponseData,
+    ClientKind, ClientMessage, IpcError as WireError, Outcome, Request, ResponseData,
     ServerMessage, Topic,
 };
-use pulse_protocol::{AuditItem, PROTOCOL_VERSION};
+use pulse_protocol::PROTOCOL_VERSION;
 use tokio::net::windows::named_pipe::NamedPipeServer;
 use tokio::sync::broadcast;
 
-use crate::{now_ms, State};
+use crate::state::{audit_item, OpError, State};
 
 const HELLO_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_AUDIT_LIMIT: u32 = 200;
@@ -81,14 +81,7 @@ async fn handle(mut ch: Channel<NamedPipeServer>, state: Arc<State>) -> pulse_ip
                 let ClientMessage::Request { id, request } = msg else {
                     break Ok(());
                 };
-                let outcome = match request {
-                    Request::CoreStatus => Outcome::Ok(ResponseData::CoreStatus(state.status.clone())),
-                    Request::Subscribe { topics: wanted } => {
-                        topics.extend(wanted.iter().copied());
-                        Outcome::Ok(ResponseData::Subscribed { topics: topics.iter().copied().collect() })
-                    }
-                    Request::RecentAudit { limit } => state.recent_audit(limit.min(MAX_AUDIT_LIMIT)),
-                };
+                let outcome = dispatch(&state, request, &mut topics).await;
                 ch.send(&ServerMessage::Response { id, outcome }).await?;
             }
             ev = events.recv() => {
@@ -111,72 +104,60 @@ async fn handle(mut ch: Channel<NamedPipeServer>, state: Arc<State>) -> pulse_ip
     result
 }
 
-fn principal_for(kind: ClientKind) -> &'static str {
-    match kind {
-        ClientKind::Desktop => "local:desktop",
+async fn dispatch(state: &State, request: Request, topics: &mut HashSet<Topic>) -> Outcome {
+    let result: Result<ResponseData, OpError> = match request {
+        Request::CoreStatus => Ok(ResponseData::CoreStatus(state.status.clone())),
+        Request::Subscribe { topics: wanted } => {
+            topics.extend(wanted.iter().copied());
+            Ok(ResponseData::Subscribed {
+                topics: topics.iter().copied().collect(),
+            })
+        }
+        Request::RecentAudit { limit } => state
+            .db()
+            .recent_audit(limit.min(MAX_AUDIT_LIMIT))
+            .map(|rows| ResponseData::Audit(rows.into_iter().map(audit_item).collect()))
+            .map_err(OpError::from),
+        Request::PairingCreate => Ok(ResponseData::Pairing(state.create_pairing().await)),
+        Request::PairingApprove { pairing_id } => state
+            .approve_pairing(&pairing_id)
+            .map(|()| ResponseData::Done),
+        Request::PairingDeny { pairing_id } => {
+            state.deny_pairing(&pairing_id).map(|()| ResponseData::Done)
+        }
+        Request::DevicesList => state.devices().map(ResponseData::Devices),
+        Request::DeviceRevoke { device_id } => state
+            .revoke_device(&device_id, "local:desktop", "revoked_from_desktop")
+            .map(|()| ResponseData::Done),
+    };
+    match result {
+        Ok(data) => Outcome::Ok(data),
+        Err(e) => Outcome::Error(wire_error(e)),
     }
 }
 
-impl State {
-    pub fn audit(&self, principal: &str, module: &str, action: &str, result: AuditResult) {
-        let entry = AuditEntry {
-            ts_ms: now_ms(),
-            principal,
-            device_id: None,
-            module,
-            action,
-            params: serde_json::json!({}),
-            permission_level: PermissionLevel::Read,
-            result,
-            error: None,
-            duration_ms: 0,
-        };
-        let inserted = {
-            let db = self.db.lock().unwrap_or_else(|p| p.into_inner());
-            db.audit(&entry)
-        };
-        match inserted {
-            Ok(id) => {
-                let _ = self.events.send(Event::Audit(AuditItem {
-                    id,
-                    ts_ms: entry.ts_ms as i64,
-                    principal: principal.to_owned(),
-                    module: module.to_owned(),
-                    action: action.to_owned(),
-                    permission_level: entry.permission_level.as_str().to_owned(),
-                    result: result.as_str().to_owned(),
-                }));
+fn wire_error(e: OpError) -> WireError {
+    match e {
+        OpError::Pairing(p) => WireError {
+            code: p.code().into(),
+            message: p.message().into(),
+        },
+        OpError::NotFound => WireError {
+            code: "not_found".into(),
+            message: "Não encontrado.".into(),
+        },
+        OpError::Db(e) => {
+            tracing::error!("erro de banco no IPC: {e}");
+            WireError {
+                code: "db_error".into(),
+                message: "Falha ao acessar o banco do Pulse.".into(),
             }
-            Err(e) => tracing::error!("falha ao gravar auditoria ({action}): {e}"),
         }
     }
+}
 
-    fn recent_audit(&self, limit: u32) -> Outcome {
-        let rows = {
-            let db = self.db.lock().unwrap_or_else(|p| p.into_inner());
-            db.recent_audit(limit)
-        };
-        match rows {
-            Ok(rows) => Outcome::Ok(ResponseData::Audit(
-                rows.into_iter()
-                    .map(|r| AuditItem {
-                        id: r.id,
-                        ts_ms: r.ts_ms,
-                        principal: r.principal,
-                        module: r.module,
-                        action: r.action,
-                        permission_level: r.permission_level,
-                        result: r.result,
-                    })
-                    .collect(),
-            )),
-            Err(e) => {
-                tracing::error!("falha ao ler auditoria: {e}");
-                Outcome::Error(WireError {
-                    code: "db_error".into(),
-                    message: "falha ao ler a auditoria".into(),
-                })
-            }
-        }
+fn principal_for(kind: ClientKind) -> &'static str {
+    match kind {
+        ClientKind::Desktop => "local:desktop",
     }
 }

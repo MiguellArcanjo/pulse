@@ -12,9 +12,10 @@ import {
   Sun,
   Sunrise,
 } from "lucide-react";
-import type { CoreConnection, Heartbeat } from "@pulse/protocol";
-import { useCore } from "./useCore";
-import { Sidebar } from "./components/Sidebar";
+import type { AuditItem, CoreConnection, Heartbeat } from "@pulse/protocol";
+import { useCore, type History } from "./useCore";
+import { Sidebar, type Page } from "./components/Sidebar";
+import { DevicesPage } from "./components/DevicesPage";
 import { Activity } from "./components/Activity";
 import { Sparkline } from "./components/Sparkline";
 import {
@@ -33,8 +34,8 @@ export default function App() {
   const { connection, heartbeat, history, audit } = useCore();
   const now = useNow();
   const online = connection.state === "connected";
-  const stale = !online && heartbeat !== null;
   const version = online ? connection.status.version : null;
+  const [page, setPage] = useState<Page>("overview");
 
   return (
     <div className="app">
@@ -56,63 +57,89 @@ export default function App() {
       </header>
 
       <div className="body">
-        <Sidebar connection={connection} heartbeat={heartbeat} />
+        <Sidebar connection={connection} heartbeat={heartbeat} page={page} onNavigate={setPage} />
 
         <main className="content">
-          <Hero now={now} connection={connection} heartbeat={heartbeat} />
-
-          {stale && heartbeat && (
-            <p className="stale-note">
-              Valores congelados · Última atualização: {formatTime(heartbeat.tsMs)}
-            </p>
+          {page === "devices" ? (
+            <DevicesPage coreOnline={online} />
+          ) : (
+            <Overview
+              now={now}
+              connection={connection}
+              heartbeat={heartbeat}
+              history={history}
+              audit={audit}
+            />
           )}
-
-          <section className={`metrics ${stale ? "is-stale" : ""}`} aria-label="Saúde do PC">
-            <MetricCard label="CPU" value={heartbeat ? `${heartbeat.cpuPercent.toFixed(0)}%` : "—"}>
-              <Sparkline values={history.cpu} max={100} />
-            </MetricCard>
-
-            <MetricCard
-              label="RAM"
-              value={heartbeat ? gb(heartbeat.memUsedBytes) : "—"}
-              unit={heartbeat ? `/ ${gb(heartbeat.memTotalBytes)} GB` : undefined}
-              percent={heartbeat ? (heartbeat.memUsedBytes / heartbeat.memTotalBytes) * 100 : undefined}
-            />
-
-            <MetricCard
-              label={heartbeat?.systemDisk ? `Disco (${heartbeat.systemDisk.mount.replace("\\", "")})` : "Disco"}
-              value={heartbeat?.systemDisk ? formatBytes(heartbeat.systemDisk.usedBytes) : "—"}
-              unit={heartbeat?.systemDisk ? `/ ${formatBytes(heartbeat.systemDisk.totalBytes)}` : undefined}
-              percent={
-                heartbeat?.systemDisk
-                  ? (heartbeat.systemDisk.usedBytes / heartbeat.systemDisk.totalBytes) * 100
-                  : undefined
-              }
-              tone="green"
-            />
-
-            <MetricCard label="Rede">
-              <div className="net">
-                <span>
-                  <ArrowDown size={14} aria-label="Recebendo" />
-                  {heartbeat ? formatRate(heartbeat.netRxBytesPerSec) : "—"}
-                </span>
-                <span>
-                  <ArrowUp size={14} aria-label="Enviando" />
-                  {heartbeat ? formatRate(heartbeat.netTxBytesPerSec) : "—"}
-                </span>
-              </div>
-              <Sparkline values={history.netRx} />
-            </MetricCard>
-          </section>
-
-          <div className="columns">
-            <Activity items={audit} />
-            <SystemStatus connection={connection} heartbeat={heartbeat} stale={stale} />
-          </div>
         </main>
       </div>
     </div>
+  );
+}
+
+function Overview(props: {
+  now: Date;
+  connection: CoreConnection;
+  heartbeat: Heartbeat | null;
+  history: History;
+  audit: AuditItem[];
+}) {
+  const { now, connection, heartbeat, history, audit } = props;
+  const stale = connection.state !== "connected" && heartbeat !== null;
+  return (
+    <>
+      <Hero now={now} connection={connection} heartbeat={heartbeat} />
+
+      {stale && heartbeat && (
+        <p className="stale-note">
+          Valores congelados · Última atualização: {formatTime(heartbeat.tsMs)}
+        </p>
+      )}
+
+      <section className={`metrics ${stale ? "is-stale" : ""}`} aria-label="Saúde do PC">
+        <MetricCard label="CPU" value={heartbeat ? `${heartbeat.cpuPercent.toFixed(0)}%` : "—"}>
+          <Sparkline values={history.cpu} max={100} />
+        </MetricCard>
+
+        <MetricCard
+          label="RAM"
+          value={heartbeat ? gb(heartbeat.memUsedBytes) : "—"}
+          unit={heartbeat ? `/ ${gb(heartbeat.memTotalBytes)} GB` : undefined}
+          percent={heartbeat ? (heartbeat.memUsedBytes / heartbeat.memTotalBytes) * 100 : undefined}
+        />
+
+        <MetricCard
+          label={heartbeat?.systemDisk ? `Disco (${heartbeat.systemDisk.mount.replace("\\", "")})` : "Disco"}
+          value={heartbeat?.systemDisk ? formatBytes(heartbeat.systemDisk.usedBytes) : "—"}
+          unit={heartbeat?.systemDisk ? `/ ${formatBytes(heartbeat.systemDisk.totalBytes)}` : undefined}
+          percent={
+            heartbeat?.systemDisk
+              ? (heartbeat.systemDisk.usedBytes / heartbeat.systemDisk.totalBytes) * 100
+              : undefined
+          }
+          tone="green"
+        />
+
+        <MetricCard label="Rede">
+          <div className="net">
+            <span>
+              <ArrowDown size={14} aria-label="Recebendo" />
+              {heartbeat ? formatRate(heartbeat.netRxBytesPerSec) : "—"}
+            </span>
+            <span>
+              <ArrowUp size={14} aria-label="Enviando" />
+              {heartbeat ? formatRate(heartbeat.netTxBytesPerSec) : "—"}
+            </span>
+          </div>
+          <Sparkline values={history.netRx} />
+        </MetricCard>
+      </section>
+
+      <div className="columns">
+        <Activity items={audit} />
+        <SystemStatus connection={connection} heartbeat={heartbeat} stale={stale} />
+      </div>
+    </>
   );
 }
 

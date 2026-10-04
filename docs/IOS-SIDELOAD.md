@@ -41,6 +41,10 @@ O ícone do Pulse aparece no iPhone.
 
 ## 5. Desenvolvimento com o dev client (hot reload)
 
+> **M2 adicionou módulos nativos** (Expo Router, telas nativas, fontes, crypto, device).
+> Instale um `pulse-ios-dev-client` (ou `release`) gerado **depois** do commit do M2; o
+> dev client do M1 não tem esses módulos e mostraria erro ao carregar o código novo.
+
 Com o `pulse-ios-dev-client` instalado, o código TypeScript vem do seu PC. Não precisa
 recompilar no GitHub a cada mudança de tela.
 

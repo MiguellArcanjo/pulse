@@ -33,6 +33,8 @@ outro terminal (`pnpm dev:core`).
 | `pnpm dev:core` | Só o Core |
 | `pnpm dev:desktop` | Só o Desktop |
 | `pnpm --filter @pulse/mobile start` | Metro para o dev client no iPhone |
+| `pnpm --filter @pulse/client e2e` | Teste de ponta a ponta do pareamento contra o Core rodando |
+| `pnpm --filter @pulse/client phone-sim "<QR>"` | Simula um iPhone pareando (testar o Desktop sem celular) |
 | `pnpm gen:protocol` | Regera os tipos TS a partir de `crates/pulse-protocol` |
 | `pnpm typecheck` | Checagem de tipos TS |
 | `pnpm check:rust` | fmt + clippy + testes Rust |
@@ -57,4 +59,5 @@ crates/pulse-protocol contratos (fonte da verdade dos tipos TS)
 crates/pulse-db       SQLite + migrations
 crates/pulse-ipc      named pipe restrito ao usuário do Windows
 packages/protocol     tipos TS gerados
+packages/client       cliente da API remota (HTTP + WebSocket + pareamento), usado pelo iPhone
 ```

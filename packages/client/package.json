@@ -1,0 +1,23 @@
+{
+  "name": "@pulse/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cliente da API remota do Pulse Core (HTTP + WebSocket). Sem dependência de DOM ou React Native.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types src/*.test.ts",
+    "e2e": "node --experimental-strip-types scripts/e2e-pairing.ts",
+    "phone-sim": "node --experimental-strip-types scripts/phone-sim.ts"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.4.0",
+    "@pulse/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
+  }
+}

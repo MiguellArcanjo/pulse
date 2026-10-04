@@ -618,6 +618,26 @@ App Expo mínimo (tela, câmera QR, Face ID, SecureStore, fetch HTTPS) → workf
 Listener remoto + Tailscale Serve, pairing com QR e código de comparação, tokens com rotação, revogação, rate limit, WS com `since`/reconexão, Settings → Devices (Desktop e Mobile). Home mobile com CPU/RAM/rede ao vivo e estado "PC Offline".
 **Pronto quando:** pareia, vê métricas ao vivo, desliga o Wi-Fi do PC e o iPhone mostra "PC Offline" com "Última atualização".
 
+**Implementado em 2026-10-04** (falta validar no iPhone real):
+
+| Peça | Onde | Verificado por |
+|---|---|---|
+| Pareamento QR + HMAC + código de 6 dígitos | `pulse-core/src/pairing.rs`, `packages/client/src/pairing.ts` | testes unitários; vetor fixo idêntico em Rust, TS e Python |
+| Tokens (acesso 15 min, renovação 30 dias com rotação, reuso ⇒ revogação, janela de 30 s para corrida legítima) | `pulse-core/src/auth.rs` | testes unitários |
+| API remota + rate limit por origem/dispositivo | `pulse-core/src/remote_api.rs`, `rate_limit.rs` | teste do fluxo HTTP completo |
+| Stream WS (auth na 1ª mensagem, replay da auditoria por `sinceAuditId`, ping 20 s, fechamento 4401/4403) | `remote_api.rs`, `packages/client/src/stream.ts` | teste com WebSocket real |
+| Detecção do endereço e do `tailscale serve` (somente leitura) | `pulse-core/src/tailscale.rs` | E2E |
+| Desktop: Dispositivos, QR, aprovação com código, revogação | `apps/desktop` | UI dirigida por script + `phone-sim` |
+| Mobile: Expo Router, abas, pareamento, Home ao vivo, offline com cache, Dispositivos, desparear | `apps/mobile/src/app` | typecheck + bundle iOS |
+| E2E pelo Tailscale Serve real (HTTPS/WSS) | `pnpm --filter @pulse/client e2e` | passou |
+
+Decisões tomadas na implementação:
+- Sessões de pareamento ficam só em memória (restart do Core invalida QRs abertos).
+- Tokens de dispositivo: só o SHA-256 no SQLite (`device_tokens`); sessão no iPhone em um item do Keychain (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`).
+- Cache de exibição no iPhone em arquivo comum (sem segredos), sempre com "Última atualização".
+- Em segundo plano o app fecha o stream; ao voltar, reconecta na hora.
+- Permissão inicial de todo dispositivo pareado: `READ`. Ações chegam no M3.
+
 ### M3 — Control + Permissões
 Action Registry, pipeline de autorização, confirmações, SecurityGate (Face ID), toggles "Require Face ID…", Lockdown Mode. Ações: apps permitidos, processos, fechar app, screenshot, bloquear, suspender, reiniciar, desligar. GPU e serviços (leitura) conforme POC.
 

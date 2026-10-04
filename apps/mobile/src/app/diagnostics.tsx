@@ -9,8 +9,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import Constants from "expo-constants";
@@ -22,8 +20,8 @@ import {
   checkSigning,
   loadCoreUrl,
   saveCoreUrl,
-} from "./checks";
-import { colors } from "./theme";
+} from "../checks";
+import { colors } from "../theme";
 
 type State = { running: boolean; result: CheckResult | null };
 const idle: State = { running: false, result: null };
@@ -48,16 +46,7 @@ function useCheck(fn: () => Promise<CheckResult>) {
   return [state, run] as const;
 }
 
-export default function App() {
-  return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
-      <Diagnostics />
-    </SafeAreaProvider>
-  );
-}
-
-function Diagnostics() {
+export default function Diagnostics() {
   const [coreUrl, setCoreUrl] = useState(loadCoreUrl);
   const [scanning, setScanning] = useState(false);
   const [lastQr, setLastQr] = useState<string | null>(null);
@@ -87,11 +76,10 @@ function Diagnostics() {
   const version = Constants.expoConfig?.version ?? "?";
 
   return (
-    <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
+    <View style={styles.root}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Pulse</Text>
         <Text style={styles.subtitle}>
-          Diagnóstico M1 · v{version} · {__DEV__ ? "dev client" : "release"}
+          Pulse Mobile v{version} · {__DEV__ ? "dev client" : "release"}
         </Text>
 
         <CheckCard
@@ -147,7 +135,7 @@ function Diagnostics() {
       </ScrollView>
 
       <Scanner visible={scanning} onClose={() => setScanning(false)} onScanned={onScanned} />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -235,7 +223,6 @@ function Scanner(props: { visible: boolean; onClose: () => void; onScanned: (dat
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 16, gap: 12, paddingBottom: 48 },
-  title: { color: colors.text, fontSize: 32, fontWeight: "700" },
   subtitle: { color: colors.dim, fontSize: 14, marginBottom: 8 },
   card: {
     backgroundColor: colors.card,

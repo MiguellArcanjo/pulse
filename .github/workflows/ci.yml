@@ -53,5 +53,8 @@ jobs:
       - name: TypeScript
         run: pnpm typecheck
 
+      - name: Testes do cliente (HMAC compatível com o Core)
+        run: pnpm --filter @pulse/client test
+
       - name: Build do frontend Desktop
         run: pnpm --filter @pulse/desktop build

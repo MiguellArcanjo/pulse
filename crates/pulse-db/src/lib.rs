@@ -3,10 +3,13 @@
 //! O banco vive fora do repositório (ver `pulse-core::paths`). Migrations são
 //! embutidas no binário e aplicadas em ordem usando `PRAGMA user_version`.
 
+mod devices;
+
 use std::path::Path;
 
 use rusqlite::{params, Connection, OpenFlags};
 
+pub use devices::{DeviceRow, DeviceStatus, TokenKind, TokenRow};
 pub use rusqlite;
 
 #[derive(Debug, thiserror::Error)]
@@ -22,7 +25,10 @@ pub enum DbError {
 pub type Result<T> = std::result::Result<T, DbError>;
 
 /// Migrations em ordem. O índice + 1 é a `user_version` resultante.
-const MIGRATIONS: &[&str] = &[include_str!("../migrations/0001_init.sql")];
+const MIGRATIONS: &[&str] = &[
+    include_str!("../migrations/0001_init.sql"),
+    include_str!("../migrations/0002_devices.sql"),
+];
 
 pub struct Db {
     conn: Connection,
@@ -106,6 +112,28 @@ impl Db {
         )?;
         let rows = stmt
             .query_map([limit], |r| {
+                Ok(AuditRow {
+                    id: r.get(0)?,
+                    ts_ms: r.get(1)?,
+                    principal: r.get(2)?,
+                    module: r.get(3)?,
+                    action: r.get(4)?,
+                    permission_level: r.get(5)?,
+                    result: r.get(6)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    /// Entradas com id maior que `after_id`, mais antiga primeiro (retomada de stream).
+    pub fn audit_since(&self, after_id: i64, limit: u32) -> Result<Vec<AuditRow>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, ts, principal, module, action, permission_level, result
+             FROM audit_log WHERE id > ?1 ORDER BY id ASC LIMIT ?2",
+        )?;
+        let rows = stmt
+            .query_map(params![after_id, limit], |r| {
                 Ok(AuditRow {
                     id: r.get(0)?,
                     ts_ms: r.get(1)?,

@@ -16,6 +16,7 @@
       }
     },
     "plugins": [
+      "expo-router",
       "expo-dev-client",
       [
         "expo-local-authentication",
@@ -31,7 +32,8 @@
           "recordAudioAndroidPermission": false
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font"
     ]
   }
 }

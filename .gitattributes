@@ -1,0 +1,5 @@
+# Fins de linha LF no repositório (evita diffs falsos nos tipos gerados no CI Windows).
+* text=auto eol=lf
+*.ico binary
+*.png binary
+*.icns binary

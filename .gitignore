@@ -1,0 +1,28 @@
+# Rust
+/target/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Tauri
+apps/desktop/src-tauri/gen/schemas/
+
+# Mobile (gerado pelo expo prebuild no CI)
+apps/mobile/ios/
+apps/mobile/android/
+
+# Dados locais — o banco do Pulse NUNCA fica no repositório
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+
+# Editor / SO
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,17 @@
+{
+  "name": "pulse",
+  "private": true,
+  "packageManager": "pnpm@10.16.1",
+  "scripts": {
+    "dev": "concurrently -n core,desktop -c cyan,magenta \"pnpm dev:core\" \"pnpm dev:desktop\"",
+    "dev:core": "cargo run -p pulse-core",
+    "dev:desktop": "pnpm --filter @pulse/desktop tauri dev",
+    "build:desktop": "pnpm --filter @pulse/desktop tauri build",
+    "gen:protocol": "cargo test -p pulse-protocol export_bindings",
+    "typecheck": "pnpm -r typecheck",
+    "check:rust": "cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

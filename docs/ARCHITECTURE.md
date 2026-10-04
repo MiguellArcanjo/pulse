@@ -219,14 +219,14 @@ Cada dispositivo recebe identidade própria; não existe senha compartilhada.
 - Acessibilidade: `WHEN_UNLOCKED_THIS_DEVICE_ONLY` (não migra em backup restaurado em outro aparelho).
 - **Nunca** AsyncStorage/MMKV para segredos. Cache não-secreto pode usar armazenamento comum.
 - Documentado pela Expo: itens com `requireAuthentication` ficam inacessíveis se a biometria mudar; dados no Keychain podem persistir após desinstalar. Por isso o app, no primeiro launch, verifica um marcador não-secreto e limpa Keychain órfão.
-- **POC necessária:** confirmar que o Keychain persiste entre *refreshes* do AltStore (re-assinatura a cada 7 dias com o mesmo Apple ID). Se trocar de Apple ID, o Team ID muda e os itens ficam inacessíveis ⇒ basta parear de novo (aceitável).
+- **M1:** persistência entre aberturas ✅ confirmada. **Pendente:** confirmar que o Keychain persiste entre *refreshes* do AltStore (re-assinatura a cada 7 dias com o mesmo Apple ID). Se trocar de Apple ID, o Team ID muda e os itens ficam inacessíveis ⇒ basta parear de novo (aceitável).
 
 ---
 
 ## 12. Face ID — `CONFIRMADO` (lib) + `POC` (em build sideloaded)
 
 - `expo-local-authentication`, com `NSFaceIDUsageDescription` via config plugin. Não funciona no Expo Go (motivo extra para dev client).
-- Face ID não depende de entitlement pago — deve funcionar em build assinado com conta gratuita. **Validar no Milestone 1.**
+- Face ID não depende de entitlement pago. **✅ Confirmado no M1** em build com assinatura gratuita.
 - `SecurityGate` reutilizável:
   - `gate(reason, scope)` → abre Face ID uma vez e concede uma **janela curta** (ex.: 60 s) restrita ao `scope` da operação, para não pedir repetidamente dentro de uma mesma operação (ex.: sessão de terminal aberta).
   - Escopos: `terminal`, `power`, `file.delete`, `echo.critical`, `security.settings`.
@@ -283,7 +283,7 @@ Duas variantes do IPA:
 - **dev client** (carrega JS do Metro no PC) — para desenvolvimento.
 - **release** (JS embutido) — para uso diário.
 
-⚠️ Ambos ocupam slots dos 3 apps permitidos. Ver § 19.
+As duas variantes usam o mesmo bundle ID (`dev.pulse.mobile`): instalar uma **substitui** a outra; não ocupam dois slots.
 
 **POC (Milestone 1)** precisa provar: build não assinado no runner, aceitação pelo AltServer, Face ID, Keychain, câmera (QR) e HTTPS via Tailscale funcionando no build re-assinado.
 
@@ -336,7 +336,7 @@ O que Pulse pode monitorar **de forma confiável** (sem integração não docume
 - **Core:** se o processo `AltServer.exe` está rodando (lista de processos) → alerta "AltServer parado".
 - **Mobile:** o app pode tentar ler a data de expiração do perfil embutido no próprio bundle (`embedded.mobileprovision`) e reportá-la ao Core → alerta "Pulse Mobile expira em 2 dias". **`POC`** — confirmar que o arquivo existe após re-assinatura do AltServer.
 
-Gestão dos 3 slots: AltStore + Pulse release + Pulse dev client. **Verificar na POC** se o próprio AltStore conta como slot; se contar, manter dev client e release ao mesmo tempo pode ser inviável — alternar.
+Gestão dos 3 slots: o Pulse ocupa **um** (release e dev client compartilham o bundle ID e se substituem). Falta confirmar se o próprio AltStore conta como slot.
 
 ---
 
@@ -593,6 +593,26 @@ Monorepo (pnpm + Cargo), CI Windows (fmt, clippy, test, tsc, eslint), `pulse-cor
 App Expo mínimo (tela, câmera QR, Face ID, SecureStore, fetch HTTPS) → workflow macOS gerando IPA não assinado (dev client e release) → sideload pelo AltServer no Windows → Metro no PC servindo JS ao iPhone → validar Keychain após refresh, leitura de `embedded.mobileprovision`, contagem de slots.
 **Pronto quando:** o app abre no seu iPhone, faz Face ID e chama um endpoint do Core via Tailscale Serve.
 **Se falhar:** decidir D1/D2 antes de continuar.
+
+**✅ Concluído em 2026-10-04** (iPhone 15, conta Apple gratuita, Windows 11):
+
+| Item | Resultado |
+|---|---|
+| IPA não assinado no GitHub Actions (macOS) | ✅ release 7 min / 8,4 MB · dev client 4 min / 18,2 MB |
+| Sideload pelo AltServer no Windows | ✅ (ver "Lições" abaixo) |
+| `embedded.mobileprovision` legível pelo app | ✅ validade de 7,0 dias + nome do time |
+| Keychain persiste entre aberturas | ✅ |
+| Face ID em build com assinatura gratuita | ✅ |
+| Câmera / QR | ✅ |
+| Dev client carregando JS do Metro no Windows | ✅ |
+| HTTPS iPhone → Tailscale Serve → Core (`/v1/health`) | ✅ sem exceção ATS |
+| Keychain após Refresh do AltStore | ⏳ acompanhar no 1º refresh (sinal positivo: valor gravado antes de uma reinstalação continuou lá) |
+| Slots: o AltStore conta como 1 dos 3? | ⏳ verificar em *My Apps* |
+
+**Lições do setup no Windows:**
+- O app **Apple Devices** (Microsoft Store) estava instalado e o **Apple Mobile Device Support** não existia. Foi preciso desinstalar o Apple Devices e reinstalar o iTunes do site da Apple.
+- Mesmo assim, o iPhone ficou com o driver genérico da Microsoft (`wpdmtp.inf`, "câmera"). O driver **Apple Mobile Device USB** (Windows Update, `Apple, Inc. - USBDevice - 538.0.0.0`) não aparecia na tela de atualizações opcionais e foi instalado pela API do Windows Update.
+- `tailscale serve` deve apontar para `http://127.0.0.1:<porta>` (o Core escuta só em IPv4 loopback).
 
 ### M2 — Vertical slice remota
 Listener remoto + Tailscale Serve, pairing com QR e código de comparação, tokens com rotação, revogação, rate limit, WS com `since`/reconexão, Settings → Devices (Desktop e Mobile). Home mobile com CPU/RAM/rede ao vivo e estado "PC Offline".

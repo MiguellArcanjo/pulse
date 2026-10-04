@@ -113,7 +113,9 @@ export async function checkCore(baseUrl: string): Promise<CheckResult> {
       ? { ok: true, detail: `Pulse Core ${body.version} respondeu em ${ms} ms.` }
       : { ok: false, detail: "Respondeu, mas não parece ser o Pulse Core." };
   } catch (e) {
-    const aborted = e instanceof Error && e.name === "AbortError";
+    // O fetch da Expo no iOS não usa o nome "AbortError" (lança
+    // FetchRequestCanceledException); o sinal é a fonte confiável.
+    const aborted = controller.signal.aborted;
     return {
       ok: false,
       detail: aborted ? "Sem resposta (timeout). PC offline ou Tailscale desligado?" : String(e),

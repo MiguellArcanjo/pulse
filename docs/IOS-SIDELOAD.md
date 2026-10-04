@@ -65,6 +65,30 @@ ou `app.json`).
   AltServer rodando no PC e os dois na mesma rede Wi-Fi.
 - O card **Assinatura** do Pulse mostra quantos dias faltam.
 
+## Se o iPhone não aparece no iTunes/AltServer
+
+Problemas encontrados no setup real (M1):
+
+1. **App "Apple Devices" da Microsoft Store instalado** → desinstale-o e reinstale o iTunes do
+   site da Apple. Confirme em *Aplicativos instalados* que existe **Apple Mobile Device Support**
+   e, em *Serviços*, **Apple Mobile Device Service** rodando.
+2. **Windows usando o driver genérico** (o iPhone aparece só como "Apple iPhone", tipo câmera, no
+   Gerenciador de Dispositivos) → instale o driver **Apple, Inc. - USBDevice** pelo Windows Update.
+   Se ele não aparecer em *Atualizações opcionais*, rode no PowerShell **como administrador**:
+
+   ```powershell
+   $s = New-Object -ComObject Microsoft.Update.Session
+   $r = $s.CreateUpdateSearcher().Search("IsInstalled=0 and Type='Driver'")
+   $c = New-Object -ComObject Microsoft.Update.UpdateColl
+   $r.Updates | Where-Object { $_.Title -match '^Apple' } | ForEach-Object { [void]$c.Add($_); "Selecionado: " + $_.Title }
+   $d = $s.CreateUpdateDownloader(); $d.Updates = $c; [void]$d.Download()
+   $i = $s.CreateUpdateInstaller(); $i.Updates = $c; $res = $i.Install()
+   "Resultado: $($res.ResultCode)  (2 = sucesso)   Precisa reiniciar: $($res.RebootRequired)"
+   ```
+
+   Depois, o Gerenciador de Dispositivos deve mostrar **Apple Mobile Device USB Composite Device**.
+3. **AltServer sem permissão** → feche-o e abra com *Executar como administrador*.
+
 ## Limites da conta gratuita
 
 - No máximo **3 apps** instalados por sideloading ao mesmo tempo.
@@ -87,7 +111,7 @@ ou `app.json`).
 | 7 | **Câmera/QR** funciona | Card "Câmera / QR" → ler qualquer QR | |
 | 8 | **Core via Tailscale** | Ver "Testar a conexão" abaixo | |
 | 9 | Dev client carrega JS do PC | Seção 5 | |
-| 10 | Quantos slots ocupa | AltStore → My Apps: AltStore conta como 1 dos 3? | |
+| 10 | Quantos slots ocupa | AltStore → My Apps: AltStore conta como 1 dos 3? (o Pulse ocupa só 1: release e dev client se substituem) | |
 
 ### Testar a conexão com o Core (item 8)
 
@@ -98,7 +122,7 @@ ou `app.json`).
 4. Publique-a no tailnet:
 
    ```bash
-   tailscale serve --bg --https=443 localhost:47610
+   tailscale serve --bg --https=443 http://127.0.0.1:47610
    ```
 
 5. `tailscale serve status` mostra o endereço `https://<pc>.<tailnet>.ts.net`.

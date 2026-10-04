@@ -89,6 +89,17 @@ pub struct AuditItem {
     pub result: String,
 }
 
+/// Resposta de `GET /v1/health` na API remota. Pública: não expõe dados do PC.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct HealthResponse {
+    pub ok: bool,
+    pub service: String,
+    pub version: String,
+    pub protocol_version: u32,
+}
+
 /// Estado da conexão de um cliente (Desktop) com o Core.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "state", rename_all = "camelCase")]

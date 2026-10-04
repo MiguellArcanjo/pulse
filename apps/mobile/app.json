@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Pulse",
+    "slug": "pulse",
+    "scheme": "pulse",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#060a13",
+    "ios": {
+      "bundleIdentifier": "dev.pulse.mobile",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      "expo-dev-client",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "O Pulse usa o Face ID para proteger ações sensíveis no seu PC."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O Pulse usa a câmera para ler o QR Code de pareamento do seu PC.",
+          "microphonePermission": false,
+          "recordAudioAndroidPermission": false
+        }
+      ],
+      "expo-secure-store"
+    ]
+  }
+}

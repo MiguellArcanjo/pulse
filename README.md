@@ -4,7 +4,8 @@ Camada de controle pessoal, local-first, sobre o PC Windows e o ambiente de dese
 
 - **Pulse Core** (Rust): processo em segundo plano que monitora e controla o PC.
 - **Pulse Desktop** (Tauri 2 + React): interface administrativa.
-- **Pulse Mobile** (React Native, iOS, sideloading): controle remoto pela rede privada. _(a partir do M1)_
+- **Pulse Mobile** (React Native + Expo, iOS, sideloading): controle remoto pela rede privada.
+  Instalação no iPhone sem Mac: [docs/IOS-SIDELOAD.md](docs/IOS-SIDELOAD.md).
 
 Arquitetura e decisões: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -31,6 +32,7 @@ outro terminal (`pnpm dev:core`).
 | `pnpm dev` | Core + Desktop em modo desenvolvimento |
 | `pnpm dev:core` | Só o Core |
 | `pnpm dev:desktop` | Só o Desktop |
+| `pnpm --filter @pulse/mobile start` | Metro para o dev client no iPhone |
 | `pnpm gen:protocol` | Regera os tipos TS a partir de `crates/pulse-protocol` |
 | `pnpm typecheck` | Checagem de tipos TS |
 | `pnpm check:rust` | fmt + clippy + testes Rust |
@@ -49,6 +51,7 @@ O banco **nunca** fica dentro do repositório.
 
 ```
 apps/desktop          Tauri 2 + React (UI); src-tauri é só a ponte com o Core
+apps/mobile           Expo / React Native (iOS); ios/ é gerado no CI
 crates/pulse-core     binário do Core
 crates/pulse-protocol contratos (fonte da verdade dos tipos TS)
 crates/pulse-db       SQLite + migrations

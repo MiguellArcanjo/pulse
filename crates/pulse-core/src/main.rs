@@ -9,6 +9,7 @@
 mod ipc_server;
 mod metrics;
 mod paths;
+mod remote_api;
 
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
@@ -66,6 +67,9 @@ async fn run() -> Result<()> {
         Err(e) => return Err(e).context("falha ao criar o named pipe"),
     };
 
+    let remote_port = remote_api::port(dev)?;
+    let remote_listener = remote_api::bind(remote_port).await?;
+
     let db_path = data_dir.join("pulse.db");
     let db = Db::open(&db_path)
         .with_context(|| format!("falha ao abrir o banco {}", db_path.display()))?;
@@ -96,9 +100,13 @@ async fn run() -> Result<()> {
     );
     tracing::info!("dados: {}", db_path.display());
     tracing::info!("pipe:  {pipe}");
+    tracing::info!(
+        "API remota: http://127.0.0.1:{remote_port} (somente local; publique com tailscale serve)"
+    );
 
     tokio::spawn(metrics::run(events, started));
     tokio::spawn(ipc_server::serve(listener, state.clone()));
+    tokio::spawn(remote_api::serve(remote_listener));
 
     tokio::signal::ctrl_c().await?;
     state.audit("system", "core", "core.stopped", AuditResult::Ok);

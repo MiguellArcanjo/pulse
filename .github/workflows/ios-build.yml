@@ -1,0 +1,110 @@
+# Gera o Pulse Mobile como IPA NÃO ASSINADO num runner macOS.
+# A assinatura acontece no Windows, pelo AltServer, com o seu Apple ID gratuito.
+# Ver docs/ARCHITECTURE.md §15 e docs/IOS-SIDELOAD.md.
+
+name: iOS build
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: Qual variante gerar
+        type: choice
+        options: [both, release, dev-client]
+        default: both
+  push:
+    branches: [main]
+    paths:
+      - apps/mobile/**
+      - packages/**
+      - pnpm-lock.yaml
+      - .github/workflows/ios-build.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: IPA (${{ matrix.variant }})
+    runs-on: macos-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # Execução manual com uma variante específica gera só ela; o resto gera as duas.
+        variant: >-
+          ${{ fromJSON(
+            github.event_name == 'workflow_dispatch' && inputs.variant != 'both'
+              && format('["{0}"]', inputs.variant)
+              || '["release","dev-client"]'
+          ) }}
+    env:
+      CONFIGURATION: ${{ matrix.variant == 'release' && 'Release' || 'Debug' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Ferramentas
+        run: |
+          xcodebuild -version
+          pod --version
+
+      - name: Gerar projeto iOS (expo prebuild)
+        working-directory: apps/mobile
+        run: pnpm exec expo prebuild --platform ios --clean
+
+      - name: Compilar sem assinatura
+        working-directory: apps/mobile/ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace Pulse.xcworkspace \
+            -scheme Pulse \
+            -configuration "$CONFIGURATION" \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build > xcodebuild.log 2>&1 \
+          || { grep -E "error:|fatal" xcodebuild.log | head -50; tail -100 xcodebuild.log; exit 1; }
+
+      - name: Empacotar IPA
+        working-directory: apps/mobile/ios
+        run: |
+          APP="build/Build/Products/${CONFIGURATION}-iphoneos/Pulse.app"
+          test -d "$APP"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          IPA="Pulse-${{ matrix.variant }}-${GITHUB_SHA::7}.ipa"
+          zip -qry "$IPA" Payload
+          echo "IPA=$IPA" >> "$GITHUB_ENV"
+          ls -lh "$IPA"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pulse-ios-${{ matrix.variant }}
+          path: apps/mobile/ios/${{ env.IPA }}
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Guardar log em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log-${{ matrix.variant }}
+          path: apps/mobile/ios/xcodebuild.log
+          if-no-files-found: ignore

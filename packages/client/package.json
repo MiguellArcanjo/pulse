@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types src/*.test.ts",
     "e2e": "node --experimental-strip-types scripts/e2e-pairing.ts",
-    "phone-sim": "node --experimental-strip-types scripts/phone-sim.ts"
+    "phone-sim": "node --experimental-strip-types scripts/phone-sim.ts",
+    "e2e-control": "node --experimental-strip-types scripts/e2e-control.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",

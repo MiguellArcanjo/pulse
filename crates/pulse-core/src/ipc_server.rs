@@ -14,6 +14,9 @@ use pulse_protocol::PROTOCOL_VERSION;
 use tokio::net::windows::named_pipe::NamedPipeServer;
 use tokio::sync::broadcast;
 
+use pulse_protocol::control::{ActionRequest, ActionResponse, Level};
+
+use crate::control_ops::Actor;
 use crate::state::{audit_item, OpError, State};
 
 const HELLO_TIMEOUT: Duration = Duration::from_secs(5);
@@ -104,7 +107,14 @@ async fn handle(mut ch: Channel<NamedPipeServer>, state: Arc<State>) -> pulse_ip
     result
 }
 
-async fn dispatch(state: &State, request: Request, topics: &mut HashSet<Topic>) -> Outcome {
+const ALL_LEVELS: [Level; 4] = [
+    Level::Read,
+    Level::SafeAction,
+    Level::Confirm,
+    Level::Critical,
+];
+
+async fn dispatch(state: &Arc<State>, request: Request, topics: &mut HashSet<Topic>) -> Outcome {
     let result: Result<ResponseData, OpError> = match request {
         Request::CoreStatus => Ok(ResponseData::CoreStatus(state.status.clone())),
         Request::Subscribe { topics: wanted } => {
@@ -129,6 +139,40 @@ async fn dispatch(state: &State, request: Request, topics: &mut HashSet<Topic>) 
         Request::DeviceRevoke { device_id } => state
             .revoke_device(&device_id, "local:desktop", "revoked_from_desktop")
             .map(|()| ResponseData::Done),
+        Request::DeviceSetGrants { device_id, grants } => state
+            .device_set_grants(&device_id, &grants)
+            .map(|()| ResponseData::Done)
+            .map_err(OpError::from),
+        Request::ControlSnapshot => Ok(ResponseData::Control(
+            state.control_snapshot(ALL_LEVELS.to_vec(), true),
+        )),
+        Request::RunAction { action } => {
+            let req = ActionRequest {
+                action,
+                confirmation_id: None,
+                face_id_verified: false,
+            };
+            match state.run_action(&Actor::Desktop, req) {
+                Ok(ActionResponse::Done { result }) => Ok(ResponseData::ActionDone(result)),
+                Ok(ActionResponse::ConfirmationRequired { .. }) => {
+                    unreachable!("o Desktop não passa por confirmação no Core")
+                }
+                Err(e) => Err(e.into()),
+            }
+        }
+        Request::AllowedAppAdd { name, path } => state
+            .allowed_app_add(&name, &path)
+            .map(|_| ResponseData::Done)
+            .map_err(OpError::from),
+        Request::AllowedAppRemove { id } => state
+            .allowed_app_remove(&id)
+            .map(|()| ResponseData::Done)
+            .map_err(OpError::from),
+        Request::SecurityGet => Ok(ResponseData::Security(state.policy())),
+        Request::SecuritySet { policy } => state
+            .set_policy(policy, &Actor::Desktop, true)
+            .map(ResponseData::Security)
+            .map_err(OpError::from),
     };
     match result {
         Ok(data) => Outcome::Ok(data),
@@ -141,6 +185,10 @@ fn wire_error(e: OpError) -> WireError {
         OpError::Pairing(p) => WireError {
             code: p.code().into(),
             message: p.message().into(),
+        },
+        OpError::Action(a) => WireError {
+            code: a.code().into(),
+            message: a.message(),
         },
         OpError::NotFound => WireError {
             code: "not_found".into(),

@@ -3,9 +3,11 @@
   "private": true,
   "packageManager": "pnpm@10.16.1",
   "scripts": {
+    "iniciar": "concurrently -n core,desktop,metro -c cyan,magenta,green \"pnpm dev:core\" \"pnpm dev:desktop\" \"pnpm dev:mobile\"",
     "dev": "concurrently -n core,desktop -c cyan,magenta \"pnpm dev:core\" \"pnpm dev:desktop\"",
     "dev:core": "cargo run -p pulse-core",
     "dev:desktop": "pnpm --filter @pulse/desktop tauri dev",
+    "dev:mobile": "pnpm --filter @pulse/mobile start",
     "build:desktop": "pnpm --filter @pulse/desktop tauri build",
     "gen:protocol": "cargo test -p pulse-protocol export_bindings",
     "typecheck": "pnpm -r typecheck",

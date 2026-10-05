@@ -1,6 +1,11 @@
 import type {
+  ActionRequest,
+  ActionResponse,
   ApiError,
   ClaimRequest,
+  ControlSnapshot,
+  SecurityPolicy,
+  SecurityUpdate,
   DevicesResponse,
   PairingStatus,
   PollRequest,
@@ -167,6 +172,23 @@ export class PulseClient {
 
   devices(): Promise<DevicesResponse> {
     return this.authed("GET", "/v1/devices");
+  }
+
+  control(): Promise<ControlSnapshot> {
+    return this.authed("GET", "/v1/control");
+  }
+
+  /** Pode voltar `confirmationRequired`: confirme com o usuário e chame de novo com o id. */
+  action(req: ActionRequest): Promise<ActionResponse> {
+    return this.authed("POST", "/v1/actions", req);
+  }
+
+  security(): Promise<SecurityPolicy> {
+    return this.authed("GET", "/v1/security");
+  }
+
+  setSecurity(update: SecurityUpdate): Promise<SecurityPolicy> {
+    return this.authed("PUT", "/v1/security", update);
   }
 
   /** Desfaz o pareamento deste iPhone no PC e apaga as credenciais locais. */

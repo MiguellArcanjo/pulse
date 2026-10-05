@@ -8,6 +8,7 @@ mod core_link;
 
 use std::sync::Mutex;
 
+use pulse_protocol::control::{Action, ActionResult, ControlSnapshot, Level, SecurityPolicy};
 use pulse_protocol::ipc::{Request, ResponseData};
 use pulse_protocol::remote::DeviceInfo;
 use pulse_protocol::{AuditItem, CoreConnection, Heartbeat, PairingTicket};
@@ -79,6 +80,68 @@ async fn device_revoke(app: AppHandle, device_id: String) -> Result<(), String> 
         .map(|_| ())
 }
 
+fn unexpected<T>() -> Result<T, String> {
+    Err("Resposta inesperada do Pulse Core.".into())
+}
+
+#[tauri::command]
+async fn control_snapshot(app: AppHandle) -> Result<ControlSnapshot, String> {
+    match core_link::request(&app, Request::ControlSnapshot).await? {
+        ResponseData::Control(s) => Ok(s),
+        _ => unexpected(),
+    }
+}
+
+/// A interface do Desktop confirma com o usuário antes de chamar isto.
+#[tauri::command]
+async fn run_action(app: AppHandle, action: Action) -> Result<ActionResult, String> {
+    match core_link::request(&app, Request::RunAction { action }).await? {
+        ResponseData::ActionDone(r) => Ok(r),
+        _ => unexpected(),
+    }
+}
+
+#[tauri::command]
+async fn allowed_app_add(app: AppHandle, name: String, path: String) -> Result<(), String> {
+    core_link::request(&app, Request::AllowedAppAdd { name, path })
+        .await
+        .map(|_| ())
+}
+
+#[tauri::command]
+async fn allowed_app_remove(app: AppHandle, id: String) -> Result<(), String> {
+    core_link::request(&app, Request::AllowedAppRemove { id })
+        .await
+        .map(|_| ())
+}
+
+#[tauri::command]
+async fn device_set_grants(
+    app: AppHandle,
+    device_id: String,
+    grants: Vec<Level>,
+) -> Result<(), String> {
+    core_link::request(&app, Request::DeviceSetGrants { device_id, grants })
+        .await
+        .map(|_| ())
+}
+
+#[tauri::command]
+async fn security_get(app: AppHandle) -> Result<SecurityPolicy, String> {
+    match core_link::request(&app, Request::SecurityGet).await? {
+        ResponseData::Security(p) => Ok(p),
+        _ => unexpected(),
+    }
+}
+
+#[tauri::command]
+async fn security_set(app: AppHandle, policy: SecurityPolicy) -> Result<SecurityPolicy, String> {
+    match core_link::request(&app, Request::SecuritySet { policy }).await? {
+        ResponseData::Security(p) => Ok(p),
+        _ => unexpected(),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -96,6 +159,13 @@ pub fn run() {
             pairing_approve,
             pairing_deny,
             device_revoke,
+            control_snapshot,
+            run_action,
+            allowed_app_add,
+            allowed_app_remove,
+            device_set_grants,
+            security_get,
+            security_set,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o Pulse Desktop");

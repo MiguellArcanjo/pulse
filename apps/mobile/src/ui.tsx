@@ -1,13 +1,27 @@
 // Peças visuais compartilhadas pelas telas do Pulse Mobile.
 
 import type { ComponentProps, ReactNode } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { colors, radius } from "./theme";
 
 export type IconName = ComponentProps<typeof Ionicons>["name"];
+
+/** Margem lateral das telas (ver `styles.screenContent`). */
+export const SCREEN_PADDING = 16;
+export const GRID_GAP = 8;
+
+/**
+ * Largura exata de cada item de uma grade de `columns` colunas. Porcentagem +
+ * espaçamento fixo não fecha a conta (os itens quebram linha e desalinham), então
+ * calculamos em pixels a partir da largura da tela.
+ */
+export function useGridItemWidth(columns: number, gap = GRID_GAP): number {
+  const { width } = useWindowDimensions();
+  return Math.floor((width - SCREEN_PADDING * 2 - gap * (columns - 1)) / columns);
+}
 
 export function Screen(props: { title?: string; subtitle?: string; children: ReactNode; header?: ReactNode }) {
   const insets = useSafeAreaInsets();
@@ -139,7 +153,7 @@ export function ComingSoon(props: { title: string; milestone: string; icon: Icon
 
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  screenContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
+  screenContent: { paddingHorizontal: SCREEN_PADDING, paddingBottom: 32, gap: 12 },
   title: { color: colors.text, fontSize: 32, fontWeight: "700" },
   subtitle: { color: colors.dim, fontSize: 15, marginTop: -6 },
   section: { color: colors.dim, fontSize: 13, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.6, marginTop: 8 },

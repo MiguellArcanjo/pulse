@@ -1,5 +1,6 @@
-# Rust
+# Rust (também builds com CARGO_TARGET_DIR relativo em subpastas)
 /target/
+**/target/
 
 # Node
 node_modules/

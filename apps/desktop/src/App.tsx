@@ -16,6 +16,7 @@ import type { AuditItem, CoreConnection, Heartbeat } from "@pulse/protocol";
 import { useCore, type History } from "./useCore";
 import { Sidebar, type Page } from "./components/Sidebar";
 import { DevicesPage } from "./components/DevicesPage";
+import { ControlPage } from "./components/ControlPage";
 import { Activity } from "./components/Activity";
 import { Sparkline } from "./components/Sparkline";
 import {
@@ -62,6 +63,8 @@ export default function App() {
         <main className="content">
           {page === "devices" ? (
             <DevicesPage coreOnline={online} />
+          ) : page === "control" ? (
+            <ControlPage heartbeat={heartbeat} />
           ) : (
             <Overview
               now={now}

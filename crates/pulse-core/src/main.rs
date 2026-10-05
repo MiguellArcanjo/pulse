@@ -8,13 +8,16 @@
 //!   pareamento, tokens por dispositivo e stream em tempo real.
 
 mod auth;
+mod control_ops;
 mod ipc_server;
 mod metrics;
 mod pairing;
 mod paths;
+mod permissions;
 mod rate_limit;
 mod remote_api;
 mod state;
+mod system;
 mod tailscale;
 
 use std::sync::Arc;
@@ -23,8 +26,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use pulse_db::{AuditResult, Db};
 use pulse_ipc::{IpcError, Listener};
-use pulse_protocol::{ipc::Event, CoreStatus, PROTOCOL_VERSION};
-use tokio::sync::broadcast;
+use pulse_protocol::{CoreStatus, PROTOCOL_VERSION};
 
 use crate::state::{now_ms, State};
 
@@ -83,7 +85,12 @@ async fn run() -> Result<()> {
         dev_mode: dev,
     };
 
-    let state = Arc::new(State::new(status, remote_port, db));
+    let state = Arc::new(State::new(
+        status,
+        remote_port,
+        db,
+        Box::new(system::WindowsOps),
+    ));
 
     state.audit("system", "core", "core.started", AuditResult::Ok);
     tracing::info!(
@@ -97,8 +104,7 @@ async fn run() -> Result<()> {
         "API remota: http://127.0.0.1:{remote_port} (somente local; publique com tailscale serve)"
     );
 
-    tokio::spawn(metrics::run(state.events.clone(), started));
-    tokio::spawn(keep_latest_heartbeat(state.clone()));
+    tokio::spawn(metrics::run(state.clone(), started));
     tokio::spawn(housekeeping(state.clone()));
     tokio::spawn(ipc_server::serve(listener, state.clone()));
     tokio::spawn(remote_api::serve(remote_listener, state.clone()));
@@ -107,18 +113,6 @@ async fn run() -> Result<()> {
     state.audit("system", "core", "core.stopped", AuditResult::Ok);
     tracing::info!("Pulse Core encerrado");
     Ok(())
-}
-
-/// Guarda o último heartbeat para o snapshot de `/v1/status` e do stream.
-async fn keep_latest_heartbeat(state: Arc<State>) {
-    let mut rx = state.events.subscribe();
-    loop {
-        match rx.recv().await {
-            Ok(Event::Heartbeat(hb)) => state.set_heartbeat(hb),
-            Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
-            Err(broadcast::error::RecvError::Closed) => break,
-        }
-    }
 }
 
 async fn housekeeping(state: Arc<State>) {

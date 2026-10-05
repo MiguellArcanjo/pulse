@@ -7,6 +7,7 @@
 //! - `core://pairing-requested`  → `PairingRequest`
 //! - `core://pairing-resolved`   → `PairingResolved`
 //! - `core://devices`            → `DeviceInfo[]`
+//! - `core://policy`             → `SecurityPolicy`
 //!
 //! Comandos do frontend chegam por [`request`], que encaminha ao Core e espera
 //! a resposta casando pelo `id`.
@@ -96,6 +97,7 @@ async fn session(app: &AppHandle) -> pulse_ipc::Result<()> {
                 Topic::Audit,
                 Topic::Pairing,
                 Topic::Devices,
+                Topic::Security,
             ],
         },
     })
@@ -157,6 +159,9 @@ fn on_event(app: &AppHandle, event: Event) {
             let _ = app.emit("core://pairing-resolved", res);
         }
         Event::DevicesChanged(list) => set_devices(app, list),
+        Event::PolicyChanged(policy) => {
+            let _ = app.emit("core://policy", policy);
+        }
     }
 }
 

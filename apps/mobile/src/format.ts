@@ -8,7 +8,8 @@ export function gb(bytes: number): string {
 export function formatBytes(bytes: number): string {
   const tb = bytes / 1024 ** 4;
   if (tb >= 1) return `${tb.toFixed(tb >= 10 ? 0 : 1)} TB`;
-  return `${gb(bytes)} GB`;
+  if (bytes >= 1024 ** 3) return `${gb(bytes)} GB`;
+  return `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`;
 }
 
 export function formatRate(bytesPerSec: number): string {

@@ -11,12 +11,12 @@ export default function More() {
     <Screen title="More">
       <View style={s.group}>
         <ListRow icon="phone-portrait-outline" label="Dispositivos" detail="Acesso deste iPhone ao PC" onPress={() => router.push("/devices")} />
+        <ListRow icon="settings-outline" label="Settings" detail="Face ID por ação, Lockdown Mode" onPress={() => router.push("/settings")} />
         <ListRow icon="pulse-outline" label="Diagnóstico" detail="Face ID, Keychain, assinatura, conexão" onPress={() => router.push("/diagnostics")} />
       </View>
 
       <SectionTitle>Em breve</SectionTitle>
       <View style={s.group}>
-        <ListRow icon="settings-outline" label="Settings" detail="Face ID por ação, Lockdown Mode" badge="M3" />
         <ListRow icon="globe-outline" label="Browser" badge="M5" />
         <ListRow icon="flash-outline" label="Trigger" badge="M6" />
         <ListRow icon="folder-open-outline" label="Files" badge="M7" />

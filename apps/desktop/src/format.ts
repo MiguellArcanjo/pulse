@@ -2,7 +2,8 @@ export function formatBytes(bytes: number): string {
   const tb = bytes / 1024 ** 4;
   if (tb >= 1) return `${tb.toFixed(tb >= 10 ? 0 : 1)} TB`;
   const gb = bytes / 1024 ** 3;
-  return gb >= 10 ? `${gb.toFixed(0)} GB` : `${gb.toFixed(1)} GB`;
+  if (gb >= 1) return gb >= 10 ? `${gb.toFixed(0)} GB` : `${gb.toFixed(1)} GB`;
+  return `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`;
 }
 
 /** Valor em GB sem unidade, para "11.8 / 32 GB". */

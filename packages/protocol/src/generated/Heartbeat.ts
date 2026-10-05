@@ -30,6 +30,10 @@ netTxBytesPerSec: number,
  */
 processCount: number, 
 /**
+ * Motor de GPU mais ocupado, 0–100 (`None` se o contador não existir).
+ */
+gpuPercent: number | null, 
+/**
  * Tempo desde o boot do Windows.
  */
 systemUptimeSecs: number, 

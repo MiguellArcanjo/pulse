@@ -13,7 +13,7 @@ import {
 import type { CoreConnection, Heartbeat } from "@pulse/protocol";
 import { formatDuration } from "../format";
 
-export type Page = "overview" | "devices";
+export type Page = "overview" | "devices" | "control";
 
 interface NavItem {
   page?: Page;
@@ -27,7 +27,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { page: "overview", label: "Visão Geral", hint: "Saúde do PC", icon: LayoutDashboard },
   { page: "devices", label: "Dispositivos", hint: "iPhone pareado", icon: Smartphone },
-  { label: "Control", hint: "PC & Sistema", icon: Monitor, milestone: "M3" },
+  { page: "control", label: "Control", hint: "PC & Sistema", icon: Monitor },
   { label: "Dev", hint: "Projetos & Claude", icon: Code2, milestone: "M4" },
   { label: "Browser", hint: "Navegador", icon: Globe, milestone: "M5" },
   { label: "Trigger", hint: "Automações", icon: Zap, milestone: "M6" },

@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Plus, ShieldCheck, Smartphone } from "lucide-react";
-import type { DeviceInfo } from "@pulse/protocol";
+import { Plus, Smartphone } from "lucide-react";
+import type { DeviceInfo, Level } from "@pulse/protocol";
 import { useDevices } from "../useDevices";
 import { PairingDialog } from "./PairingDialog";
+import { SecurityPanel, Toggle } from "./SecurityPanel";
 
-const GRANT_LABELS: Record<string, string> = {
-  READ: "Leitura",
-  SAFE_ACTION: "Ações seguras",
-  CONFIRM: "Ações com confirmação",
-  CRITICAL: "Ações críticas",
-};
+const GRANTS: Array<{ level: Level; label: string; hint: string }> = [
+  { level: "READ", label: "Leitura", hint: "ver o PC (sempre ligado)" },
+  { level: "SAFE_ACTION", label: "Ações seguras", hint: "bloquear, abrir app permitido" },
+  { level: "CONFIRM", label: "Com confirmação", hint: "fechar apps, screenshot, energia" },
+  { level: "CRITICAL", label: "Críticas", hint: "irreversíveis, sempre com Face ID" },
+];
 
 function formatDateTime(ms: number): string {
   return new Date(ms).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
@@ -48,6 +49,8 @@ export function DevicesPage({ coreOnline }: { coreOnline: boolean }) {
         </section>
       )}
 
+      <SecurityPanel />
+
       {revoked.length > 0 && (
         <section className="panel">
           <header className="panel-header">
@@ -72,6 +75,18 @@ export function DevicesPage({ coreOnline }: { coreOnline: boolean }) {
 function DeviceCard({ device }: { device: DeviceInfo }) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const setGrant = async (level: Level, on: boolean) => {
+    setError(null);
+    const next = on
+      ? [...device.grants, level]
+      : device.grants.filter((g) => g !== level);
+    try {
+      await invoke("device_set_grants", { deviceId: device.id, grants: next });
+    } catch (e) {
+      setError(String(e));
+    }
+  };
 
   const revoke = async () => {
     setError(null);
@@ -104,15 +119,26 @@ function DeviceCard({ device }: { device: DeviceInfo }) {
         <dd>{formatDateTime(device.pairedAtMs)}</dd>
         <dt>Última conexão</dt>
         <dd>{device.online ? "agora" : device.lastSeenMs ? formatDateTime(device.lastSeenMs) : "—"}</dd>
-        <dt>Permissões</dt>
-        <dd className="grants">
-          {device.grants.map((g) => (
-            <span key={g} className="grant">
-              <ShieldCheck size={12} aria-hidden /> {GRANT_LABELS[g] ?? g}
-            </span>
-          ))}
-        </dd>
       </dl>
+
+      <div className="grant-list" role="group" aria-label={`Permissões de ${device.name}`}>
+        {GRANTS.map((g) => {
+          const on = device.grants.includes(g.level);
+          return (
+            <div key={g.level} className="grant-row">
+              <span>
+                {g.label} <span className="dim small">· {g.hint}</span>
+              </span>
+              <Toggle
+                checked={on}
+                disabled={g.level === "READ"}
+                label={`${g.label} para ${device.name}`}
+                onChange={(v) => void setGrant(g.level, v)}
+              />
+            </div>
+          );
+        })}
+      </div>
 
       {error && <p className="bad small">{error}</p>}
 

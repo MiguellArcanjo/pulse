@@ -9,6 +9,8 @@
 //! | `POST /v1/pairing/claim`, `POST /v1/pairing/poll` | prova HMAC do QR |
 //! | `POST /v1/auth/refresh` | token de renovação |
 //! | `GET  /v1/status`, `GET /v1/devices`, `POST /v1/devices/me/revoke` | Bearer (acesso) |
+//! | `GET  /v1/control`, `POST /v1/actions` | Bearer + permissões do dispositivo |
+//! | `GET  /v1/security`, `PUT /v1/security` | Bearer (iPhone só aperta a política) |
 //! | `GET  /v1/stream` (WebSocket) | token na 1ª mensagem |
 
 use std::net::{Ipv4Addr, SocketAddr};
@@ -24,17 +26,20 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use pulse_db::{AuditResult, DeviceRow, PermissionLevel};
+use pulse_protocol::control::{ActionRequest, ActionResponse, ControlSnapshot, SecurityPolicy};
 use pulse_protocol::ipc::Event;
 use pulse_protocol::remote::{
     ApiError, ClaimRequest, DevicesResponse, PairingStatus, PollRequest, RefreshRequest,
-    RemoteStatus, StreamClientMsg, StreamServerMsg, TokenPair,
+    RemoteStatus, SecurityUpdate, StreamClientMsg, StreamServerMsg, TokenPair,
 };
 use pulse_protocol::{HealthResponse, PROTOCOL_VERSION};
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 
 use crate::auth::{self, AuthError};
+use crate::control_ops::{grants_of, ActionError, Actor};
 use crate::pairing::PairingError;
+use crate::permissions::ConfirmError;
 use crate::rate_limit::Bucket;
 use crate::state::{audit_item, now_ms, AuditExtra, State};
 
@@ -83,6 +88,9 @@ pub fn router(state: Arc<State>) -> Router {
         .route("/v1/status", get(status))
         .route("/v1/devices", get(devices))
         .route("/v1/devices/me/revoke", post(revoke_me))
+        .route("/v1/control", get(control))
+        .route("/v1/actions", post(action))
+        .route("/v1/security", get(security_get).put(security_put))
         .route("/v1/stream", get(stream))
         .with_state(state)
 }
@@ -135,6 +143,20 @@ impl From<PairingError> for ApiErr {
             PairingError::WrongCode | PairingError::TooManyCodeAttempts => StatusCode::FORBIDDEN,
         };
         Self::new(status, e.code(), e.message())
+    }
+}
+
+impl From<ActionError> for ApiErr {
+    fn from(e: ActionError) -> Self {
+        let status = match &e {
+            ActionError::Denied(_) => StatusCode::FORBIDDEN,
+            ActionError::Confirm(ConfirmError::FaceIdRequired) => StatusCode::FORBIDDEN,
+            ActionError::Confirm(_) => StatusCode::CONFLICT,
+            ActionError::NotFound(_) => StatusCode::NOT_FOUND,
+            ActionError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            ActionError::Failed(_) => StatusCode::UNPROCESSABLE_ENTITY,
+        };
+        Self(status, e.code(), e.message())
     }
 }
 
@@ -325,6 +347,38 @@ async fn revoke_me(
     Ok(StatusCode::NO_CONTENT)
 }
 
+async fn control(AxState(state): AxState<Arc<State>>, Device(me): Device) -> Json<ControlSnapshot> {
+    Json(state.control_snapshot(grants_of(&me), false))
+}
+
+async fn action(
+    AxState(state): AxState<Arc<State>>,
+    Device(me): Device,
+    Json(req): Json<ActionRequest>,
+) -> Result<Json<ActionResponse>, ApiErr> {
+    // Captura de tela, energia e processos podem bloquear um pouco: fora do executor async.
+    let response = tokio::task::spawn_blocking(move || state.run_action(&Actor::Device(me), req))
+        .await
+        .map_err(|_| ApiErr::internal())??;
+    Ok(Json(response))
+}
+
+async fn security_get(AxState(state): AxState<Arc<State>>, _me: Device) -> Json<SecurityPolicy> {
+    Json(state.policy())
+}
+
+async fn security_put(
+    AxState(state): AxState<Arc<State>>,
+    Device(me): Device,
+    Json(update): Json<SecurityUpdate>,
+) -> Result<Json<SecurityPolicy>, ApiErr> {
+    Ok(Json(state.set_policy(
+        update.policy,
+        &Actor::Device(me),
+        update.face_id_verified,
+    )?))
+}
+
 // ---------- stream ----------
 
 async fn stream(
@@ -419,6 +473,16 @@ async fn stream_session(mut socket: WebSocket, state: Arc<State>) {
     )
     .await;
 
+    if ok {
+        ok = send(
+            &mut socket,
+            &StreamServerMsg::Policy {
+                policy: state.policy(),
+            },
+        )
+        .await;
+    }
+
     if let (true, Some(since)) = (ok, since_audit_id) {
         let missed = state.db().audit_since(since, STREAM_REPLAY_LIMIT);
         for row in missed.unwrap_or_default() {
@@ -445,6 +509,7 @@ async fn stream_session(mut socket: WebSocket, state: Arc<State>) {
                 let msg = match ev {
                     Ok(Event::Heartbeat(hb)) => Some(StreamServerMsg::Heartbeat { heartbeat: hb }),
                     Ok(Event::Audit(item)) => Some(StreamServerMsg::Audit { item }),
+                    Ok(Event::PolicyChanged(policy)) => Some(StreamServerMsg::Policy { policy }),
                     Ok(_) => None,
                     Err(broadcast::error::RecvError::Lagged(_)) => None,
                     Err(broadcast::error::RecvError::Closed) => break,
@@ -504,7 +569,12 @@ mod tests {
             data_dir: "x".into(),
             dev_mode: true,
         };
-        Arc::new(State::new(status, 0, Db::open_in_memory().unwrap()))
+        Arc::new(State::new(
+            status,
+            0,
+            Db::open_in_memory().unwrap(),
+            Box::new(crate::system::FakeOps::default()),
+        ))
     }
 
     async fn call(
@@ -636,7 +706,11 @@ mod tests {
         let (_, body) = call(&app, "GET", "/v1/devices", Some(&access), None).await;
         assert_eq!(body["me"], device_id);
         assert_eq!(body["devices"][0]["name"], "iPhone de Miguel");
-        assert_eq!(body["devices"][0]["grants"][0], "READ");
+        // Decisão D9: pareado recebe READ + SAFE_ACTION + CONFIRM, sem CRITICAL.
+        assert_eq!(
+            body["devices"][0]["grants"],
+            serde_json::json!(["READ", "SAFE_ACTION", "CONFIRM"])
+        );
 
         let (st, body) = call(
             &app,
@@ -746,6 +820,9 @@ mod tests {
         let ready = next_json(&mut ws).await.unwrap();
         assert_eq!(ready["type"], "ready");
         assert_eq!(ready["status"]["hostname"], "pc-teste");
+        let policy = next_json(&mut ws).await.unwrap();
+        assert_eq!(policy["type"], "policy");
+        assert_eq!(policy["policy"]["lockdown"], false);
         let replay = next_json(&mut ws).await.unwrap();
         assert_eq!(replay["type"], "audit");
         assert_eq!(replay["item"]["action"], "core.started");
@@ -767,6 +844,7 @@ mod tests {
                 net_rx_bytes_per_sec: 0,
                 net_tx_bytes_per_sec: 0,
                 process_count: 1,
+                gpu_percent: None,
                 system_uptime_secs: 1,
                 core_uptime_secs: 1,
             }));
@@ -801,6 +879,194 @@ mod tests {
         assert_eq!(close_code, Some(4403));
         tokio::time::sleep(Duration::from_millis(50)).await;
         assert!(!state.devices().unwrap()[0].online);
+    }
+
+    fn paired_device(state: &State, grants: &[&str]) -> String {
+        let db = state.db();
+        db.insert_device(&DeviceRow {
+            id: "dev-ctl".into(),
+            name: "iPhone".into(),
+            model: "".into(),
+            status: pulse_db::DeviceStatus::Active,
+            grants: grants.iter().map(|g| g.to_string()).collect(),
+            paired_at_ms: 0,
+            last_seen_ms: None,
+            revoked_at_ms: None,
+        })
+        .unwrap();
+        auth::issue_tokens(&db, "dev-ctl", now_ms())
+            .unwrap()
+            .access_token
+    }
+
+    fn fake_calls(state: &State) -> Vec<String> {
+        state
+            .ops
+            .as_any()
+            .downcast_ref::<crate::system::FakeOps>()
+            .unwrap()
+            .calls
+            .lock()
+            .unwrap()
+            .clone()
+    }
+
+    /// Fluxo do Control pelo HTTP: SAFE executa direto; CONFIRM pede confirmação
+    /// de uso único; energia exige Face ID; Lockdown bloqueia; só o Desktop o desliga.
+    #[tokio::test]
+    async fn actions_flow_with_confirmation_face_id_and_lockdown() {
+        let state = test_state();
+        let app = router(state.clone());
+        let token = paired_device(&state, &["READ", "SAFE_ACTION", "CONFIRM"]);
+        let post = |body: serde_json::Value| {
+            let app = app.clone();
+            let token = token.clone();
+            async move { call(&app, "POST", "/v1/actions", Some(&token), Some(body)).await }
+        };
+
+        // SAFE_ACTION: executa direto.
+        let (st, body) = post(serde_json::json!({ "action": "lock" })).await;
+        assert_eq!(st, StatusCode::OK, "{body}");
+        assert_eq!(body["status"], "done");
+        assert_eq!(fake_calls(&state), vec!["lock"]);
+
+        // CONFIRM: primeiro pede confirmação, nada é executado.
+        let (_, body) =
+            post(serde_json::json!({ "action": "appClose", "params": { "pid": 100 } })).await;
+        assert_eq!(body["status"], "confirmationRequired", "{body}");
+        assert_eq!(body["confirmation"]["faceId"], false);
+        let cid = body["confirmation"]["id"].as_str().unwrap().to_owned();
+        assert_eq!(fake_calls(&state).len(), 1);
+
+        // Confirmação não serve para outro processo.
+        let (st, body) = post(serde_json::json!({
+            "action": "appClose", "params": { "pid": 999 }, "confirmationId": cid
+        }))
+        .await;
+        assert_eq!(st, StatusCode::CONFLICT);
+        assert_eq!(body["code"], "confirmation_mismatch");
+
+        // Com confirmação nova e correta, executa.
+        let (_, body) =
+            post(serde_json::json!({ "action": "appClose", "params": { "pid": 100 } })).await;
+        let cid = body["confirmation"]["id"].as_str().unwrap().to_owned();
+        let (st, body) = post(serde_json::json!({
+            "action": "appClose", "params": { "pid": 100 }, "confirmationId": cid
+        }))
+        .await;
+        assert_eq!(st, StatusCode::OK, "{body}");
+        assert_eq!(fake_calls(&state).last().unwrap(), "close 100");
+
+        // Energia: confirmação exige Face ID.
+        let (_, body) = post(serde_json::json!({ "action": "restart" })).await;
+        assert_eq!(body["confirmation"]["faceId"], true);
+        let cid = body["confirmation"]["id"].as_str().unwrap().to_owned();
+        let (st, body) =
+            post(serde_json::json!({ "action": "restart", "confirmationId": cid })).await;
+        assert_eq!(st, StatusCode::FORBIDDEN);
+        assert_eq!(body["code"], "face_id_required");
+        assert!(!fake_calls(&state).contains(&"restart".to_owned()));
+        let (_, body) = post(serde_json::json!({ "action": "restart" })).await;
+        let cid = body["confirmation"]["id"].as_str().unwrap().to_owned();
+        let (st, _) = post(serde_json::json!({
+            "action": "restart", "confirmationId": cid, "faceIdVerified": true
+        }))
+        .await;
+        assert_eq!(st, StatusCode::OK);
+        assert_eq!(fake_calls(&state).last().unwrap(), "restart");
+
+        // Lockdown pelo iPhone: depois disso, nem SAFE_ACTION passa.
+        let (st, _) = post(serde_json::json!({ "action": "lockdownEnable" })).await;
+        assert_eq!(st, StatusCode::OK);
+        let (st, body) = post(serde_json::json!({ "action": "lock" })).await;
+        assert_eq!(st, StatusCode::FORBIDDEN);
+        assert_eq!(body["code"], "lockdown");
+        // Leitura continua funcionando.
+        let (st, body) = call(&app, "GET", "/v1/control", Some(&token), None).await;
+        assert_eq!(st, StatusCode::OK);
+        assert_eq!(body["policy"]["lockdown"], true);
+
+        // O iPhone não consegue desligar o Lockdown (D10)...
+        let mut relaxed = state.policy();
+        relaxed.lockdown = false;
+        let (st, body) = call(
+            &app,
+            "PUT",
+            "/v1/security",
+            Some(&token),
+            Some(serde_json::json!({ "policy": relaxed, "faceIdVerified": true })),
+        )
+        .await;
+        assert_eq!(st, StatusCode::FORBIDDEN);
+        assert_eq!(body["code"], "lockdown");
+        // ...só o Desktop.
+        state.set_policy(relaxed, &Actor::Desktop, false).unwrap();
+        let (st, _) = post(serde_json::json!({ "action": "lock" })).await;
+        assert_eq!(st, StatusCode::OK);
+
+        let actions: Vec<String> = state
+            .db()
+            .recent_audit(50)
+            .unwrap()
+            .into_iter()
+            .map(|r| format!("{}:{}", r.action, r.result))
+            .collect();
+        for expected in [
+            "control.power.lock:ok",
+            "control.app.close:denied",
+            "control.app.close:ok",
+            "control.power.restart:denied",
+            "control.power.restart:ok",
+            "security.policy_changed:ok",
+            "control.power.lock:denied",
+        ] {
+            assert!(
+                actions.iter().any(|a| a == expected),
+                "{expected} em {actions:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn read_only_device_cannot_act_and_relaxing_face_id_needs_face_id() {
+        let state = test_state();
+        let app = router(state.clone());
+        let token = paired_device(&state, &["READ"]);
+        let (st, body) = call(
+            &app,
+            "POST",
+            "/v1/actions",
+            Some(&token),
+            Some(serde_json::json!({ "action": "lock" })),
+        )
+        .await;
+        assert_eq!(st, StatusCode::FORBIDDEN);
+        assert_eq!(body["code"], "not_granted");
+
+        let mut relaxed = state.policy();
+        relaxed.require_face_id_power = false;
+        let body_for =
+            |face: bool| serde_json::json!({ "policy": relaxed, "faceIdVerified": face });
+        let (st, body) = call(
+            &app,
+            "PUT",
+            "/v1/security",
+            Some(&token),
+            Some(body_for(false)),
+        )
+        .await;
+        assert_eq!(st, StatusCode::FORBIDDEN);
+        assert_eq!(body["code"], "face_id_required");
+        let (st, body) = call(
+            &app,
+            "PUT",
+            "/v1/security",
+            Some(&token),
+            Some(body_for(true)),
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK);
+        assert_eq!(body["requireFaceIdPower"], false);
     }
 
     #[tokio::test]

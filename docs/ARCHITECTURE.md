@@ -578,6 +578,8 @@ Comandos de serviços de projeto são **estruturados e cadastrados no Desktop** 
 | D6 | SQLite em Rust | (a) `rusqlite` (síncrono, simples) · (b) `sqlx` (async, checagem em compile-time) | (a) com pool `spawn_blocking` |
 | D7 | Terminal remoto no MVP | (a) desligado · (b) somente leitura · (c) interativo com Face ID | (b) no MVP, (c) depois |
 | D8 | Refresh do app | (a) AltStore + AltServer no PC · (b) SideStore (refresh no iPhone) | (a), PC já fica ligado |
+| D9 | Permissões de um iPhone recém-pareado | (a) READ+SAFE_ACTION+CONFIRM · (b) só READ · (c) tudo | ✅ **Decidido: (a)**; CRITICAL liberado por dispositivo no Desktop (2026-10-05) |
+| D10 | Quem desliga o Lockdown Mode | (a) só o Desktop · (b) Desktop ou iPhone com Face ID | ✅ **Decidido: (a)**; ligar pode ser de qualquer lugar (2026-10-05) |
 
 ---
 
@@ -640,6 +642,29 @@ Decisões tomadas na implementação:
 
 ### M3 — Control + Permissões
 Action Registry, pipeline de autorização, confirmações, SecurityGate (Face ID), toggles "Require Face ID…", Lockdown Mode. Ações: apps permitidos, processos, fechar app, screenshot, bloquear, suspender, reiniciar, desligar. GPU e serviços (leitura) conforme POC.
+
+**Implementado em 2026-10-05** (falta validar no iPhone real):
+
+| Peça | Onde | Verificado por |
+|---|---|---|
+| Registro de ações (`Action` + nível + escopo de Face ID) | `pulse-protocol/src/control.rs` | testes de formato |
+| Motor de permissões: Lockdown → permissão do dispositivo → nível; confirmação de uso único presa ao dispositivo e à ação exata (60 s) | `pulse-core/src/permissions.rs` | testes unitários |
+| Execução + auditoria (nível, parâmetros, resultado, duração) | `pulse-core/src/control_ops.rs` | teste HTTP do fluxo completo |
+| Windows real atrás de `SystemOps` (testes usam implementação falsa: nunca bloqueiam/reiniciam o PC) | `pulse-core/src/system/` | testes só-leitura + `e2e-control` |
+| GPU (contadores PDH `GPU Engine`), janelas (EnumWindows, sem cloaked/tool windows), serviços (SCM), screenshot (xcap → JPEG ≤1600 px) | idem | idem |
+| Política de segurança no Core (`settings.security.policy`), propagada ao vivo (IPC e stream) | `control_ops.rs` | testes |
+| Desktop: página Control, apps permitidos, painel de segurança, permissões por dispositivo | `apps/desktop` | typecheck/build |
+| iPhone: aba Control, SecurityGate (Face ID com janela de 60 s por escopo), Settings, avisos de Lockdown | `apps/mobile` | typecheck + bundle iOS |
+| E2E no Windows real (Core isolado, sem ações destrutivas) | `pnpm --filter @pulse/client e2e-control` | passou |
+
+Decisões tomadas na implementação:
+- Níveis: bloquear e abrir app permitido = SAFE_ACTION; fechar app, encerrar processo, screenshot, suspender, reiniciar, desligar = CONFIRM; energia (suspender/reiniciar/desligar) exige Face ID por padrão. CRITICAL sempre exige Face ID.
+- Reiniciar/desligar usam `shutdown.exe` com 10 s de aviso (cancelável com `shutdown /a`); suspender roda 1,5 s depois da resposta para ela chegar ao iPhone.
+- Processos protegidos (System, csrss, lsass, winlogon, dwm, o próprio Core…) nunca são encerrados.
+- O Desktop é o administrador local: não passa por Lockdown nem por confirmação do Core (a própria interface confirma), mas tudo é auditado.
+- Caminhos de executáveis só vão para o Desktop (para permitir apps); o iPhone não os recebe.
+- No iPhone, afrouxar uma exigência de Face ID pede Face ID; desligar o Lockdown só no Desktop (D10).
+- Limitação conhecida (§10): o Core confia na declaração de Face ID feita pelo app.
 
 ### M4 — DevOS
 Projetos, serviços de projeto (start/stop/restart, logs), sessões de trabalho, "onde parei", Git básico (status, branch, últimos commits, arquivos modificados). Tela Projects/Project Detail no mobile.

@@ -4,6 +4,7 @@
 //! é definido aqui. Os tipos marcados com `#[ts(export)]` geram TypeScript em
 //! `packages/protocol/src/generated` via `pnpm gen:protocol`.
 
+pub mod control;
 pub mod ipc;
 pub mod remote;
 
@@ -11,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 /// Versão do protocolo IPC. Incrementar em mudanças incompatíveis.
-pub const PROTOCOL_VERSION: u32 = 4;
+pub const PROTOCOL_VERSION: u32 = 5;
 
 /// Amostra periódica de saúde do PC emitida pelo Core.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -37,6 +38,8 @@ pub struct Heartbeat {
     pub net_tx_bytes_per_sec: u64,
     /// Quantidade de processos em execução.
     pub process_count: u32,
+    /// Motor de GPU mais ocupado, 0–100 (`None` se o contador não existir).
+    pub gpu_percent: Option<f32>,
     /// Tempo desde o boot do Windows.
     #[ts(type = "number")]
     pub system_uptime_secs: u64,

@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::control::{Action, ActionResult, ControlSnapshot, Level, SecurityPolicy};
 use crate::remote::DeviceInfo;
 use crate::{AuditItem, CoreStatus, Heartbeat, PairingRequest, PairingResolved, PairingTicket};
 
@@ -54,6 +55,26 @@ pub enum Request {
     DeviceRevoke {
         device_id: String,
     },
+    DeviceSetGrants {
+        device_id: String,
+        grants: Vec<Level>,
+    },
+    ControlSnapshot,
+    /// O Desktop executa direto: a própria interface já confirmou com o usuário.
+    RunAction {
+        action: Action,
+    },
+    AllowedAppAdd {
+        name: String,
+        path: String,
+    },
+    AllowedAppRemove {
+        id: String,
+    },
+    SecurityGet,
+    SecuritySet {
+        policy: SecurityPolicy,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -63,6 +84,7 @@ pub enum Topic {
     Audit,
     Pairing,
     Devices,
+    Security,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -97,6 +119,9 @@ pub enum ResponseData {
     Audit(Vec<AuditItem>),
     Pairing(PairingTicket),
     Devices(Vec<DeviceInfo>),
+    Control(ControlSnapshot),
+    ActionDone(ActionResult),
+    Security(SecurityPolicy),
     Done,
 }
 
@@ -115,6 +140,7 @@ pub enum Event {
     PairingRequested(PairingRequest),
     PairingResolved(PairingResolved),
     DevicesChanged(Vec<DeviceInfo>),
+    PolicyChanged(SecurityPolicy),
 }
 
 impl Event {
@@ -124,6 +150,7 @@ impl Event {
             Event::Audit(_) => Topic::Audit,
             Event::PairingRequested(_) | Event::PairingResolved(_) => Topic::Pairing,
             Event::DevicesChanged(_) => Topic::Devices,
+            Event::PolicyChanged(_) => Topic::Security,
         }
     }
 }
@@ -174,6 +201,7 @@ mod tests {
                 net_rx_bytes_per_sec: 10,
                 net_tx_bytes_per_sec: 20,
                 process_count: 150,
+                gpu_percent: Some(3.5),
                 system_uptime_secs: 5,
                 core_uptime_secs: 6,
             }),

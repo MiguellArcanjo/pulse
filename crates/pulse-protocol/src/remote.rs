@@ -11,7 +11,19 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::control::SecurityPolicy;
 use crate::{AuditItem, Heartbeat};
+
+/// Corpo de `PUT /v1/security`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SecurityUpdate {
+    pub policy: SecurityPolicy,
+    /// Necessário para afrouxar exigências de Face ID a partir do iPhone.
+    #[serde(default)]
+    pub face_id_verified: bool,
+}
 
 /// Prefixo de domínio das mensagens HMAC do pareamento.
 pub const PAIRING_DOMAIN: &str = "pulse-pair-v1";
@@ -166,6 +178,10 @@ pub enum StreamServerMsg {
     },
     Audit {
         item: AuditItem,
+    },
+    /// Política de segurança atual (enviada após `ready` e a cada mudança).
+    Policy {
+        policy: SecurityPolicy,
     },
     /// Enviada antes de fechar; o cliente deve reagir conforme o código.
     Error {

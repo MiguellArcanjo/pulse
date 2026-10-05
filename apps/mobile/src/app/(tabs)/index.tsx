@@ -3,16 +3,17 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { AuditItem } from "@pulse/protocol";
 import { usePulse } from "../../session/SessionProvider";
-import { Bar, Card, Pill, Screen, SectionTitle } from "../../ui";
+import { Bar, Card, Pill, Screen, SectionTitle, useGridItemWidth } from "../../ui";
 import { colors } from "../../theme";
 import { formatAgo, formatBytes, formatDuration, formatRate, formatTime, gb } from "../../format";
 import { describeAudit } from "../../audit";
 
 export default function Home() {
-  const { connection, status, heartbeat, audit, lastUpdateMs, reconnect } = usePulse();
+  const { connection, status, heartbeat, audit, lastUpdateMs, reconnect, policy } = usePulse();
   const online = connection.kind === "online";
   const stale = !online;
   const now = useNow(15_000);
+  const cell = useGridItemWidth(2, 12);
 
   const memPct = heartbeat ? (heartbeat.memUsedBytes / heartbeat.memTotalBytes) * 100 : 0;
   const disk = heartbeat?.systemDisk ?? null;
@@ -51,6 +52,16 @@ export default function Home() {
         </Pressable>
       )}
 
+      {policy?.lockdown && (
+        <Card style={s.lockdown}>
+          <View style={s.offlineRow}>
+            <Ionicons name="shield-half-outline" size={20} color={colors.amber} />
+            <Text style={s.lockdownTitle}>Lockdown Mode ativo</Text>
+          </View>
+          <Text style={s.offlineText}>Somente leitura. Desative no Pulse Desktop.</Text>
+        </Card>
+      )}
+
       {heartbeat && (
         <Text style={s.uptime}>
           Ligado há {formatDuration(heartbeat.systemUptimeSecs)}
@@ -59,21 +70,23 @@ export default function Home() {
       )}
 
       <View style={[s.grid, stale && s.stale]}>
-        <Metric label="CPU" value={heartbeat ? `${heartbeat.cpuPercent.toFixed(0)}%` : "—"} percent={heartbeat?.cpuPercent} />
+        <Metric width={cell} label="CPU" value={heartbeat ? `${heartbeat.cpuPercent.toFixed(0)}%` : "—"} percent={heartbeat?.cpuPercent} />
         <Metric
+          width={cell}
           label="RAM"
           value={heartbeat ? gb(heartbeat.memUsedBytes) : "—"}
           unit={heartbeat ? `/ ${gb(heartbeat.memTotalBytes)} GB` : undefined}
           percent={heartbeat ? memPct : undefined}
         />
         <Metric
+          width={cell}
           label="Disco"
           value={disk ? formatBytes(disk.usedBytes) : "—"}
           unit={disk ? `/ ${formatBytes(disk.totalBytes)}` : undefined}
           percent={disk ? (disk.usedBytes / disk.totalBytes) * 100 : undefined}
           color={colors.green}
         />
-        <Card style={s.metric}>
+        <Card style={[s.metric, { width: cell }]}>
           <Text style={s.metricLabel}>Rede</Text>
           <Text style={s.net}>↓ {heartbeat ? formatRate(heartbeat.netRxBytesPerSec) : "—"}</Text>
           <Text style={s.net}>↑ {heartbeat ? formatRate(heartbeat.netTxBytesPerSec) : "—"}</Text>
@@ -101,9 +114,9 @@ function useNow(everyMs: number): number {
   return now;
 }
 
-function Metric(props: { label: string; value: string; unit?: string; percent?: number; color?: string }) {
+function Metric(props: { label: string; value: string; unit?: string; percent?: number; color?: string; width: number }) {
   return (
-    <Card style={s.metric}>
+    <Card style={[s.metric, { width: props.width }]}>
       <Text style={s.metricLabel}>{props.label}</Text>
       <Text style={s.metricValue} numberOfLines={1} adjustsFontSizeToFit>
         {props.value}
@@ -142,9 +155,11 @@ const s = StyleSheet.create({
   offlineTitle: { color: colors.red, fontSize: 17, fontWeight: "700" },
   offlineText: { color: colors.text, fontSize: 14 },
   offlineHint: { color: colors.dim, fontSize: 12 },
+  lockdown: { borderColor: colors.amberSoft, backgroundColor: colors.amberSoft },
+  lockdownTitle: { color: colors.amber, fontSize: 17, fontWeight: "700" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   stale: { opacity: 0.45 },
-  metric: { width: "47.9%", minHeight: 104 },
+  metric: { minHeight: 104 },
   metricLabel: { color: colors.dim, fontSize: 13, fontWeight: "600" },
   metricValue: { color: colors.text, fontSize: 24, fontWeight: "700" },
   metricUnit: { color: colors.dim, fontSize: 13, fontWeight: "400" },

@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
 import { PulseClient, PulseStream, type StreamState } from "@pulse/client";
-import type { AuditItem, Heartbeat, RemoteStatus } from "@pulse/protocol";
+import type { AuditItem, Heartbeat, RemoteStatus, SecurityPolicy } from "@pulse/protocol";
+import { resetGate } from "../security/SecurityGate";
 import {
   clearSession,
   loadCache,
@@ -25,6 +26,8 @@ export interface Pulse {
   heartbeat: Heartbeat | null;
   cpuHistory: number[];
   audit: AuditItem[];
+  /** Política de segurança do PC (Lockdown, exigências de Face ID). */
+  policy: SecurityPolicy | null;
   /** Quando os dados exibidos foram recebidos do PC pela última vez. */
   lastUpdateMs: number | null;
   /** Motivo de um desemparelhamento forçado (ex.: revogado no PC). */
@@ -53,6 +56,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [audit, setAudit] = useState<AuditItem[]>(cache?.audit ?? []);
   const [lastUpdateMs, setLastUpdateMs] = useState<number | null>(cache?.savedAtMs ?? null);
   const [unpairedReason, setUnpairedReason] = useState<string | null>(null);
+  const [policy, setPolicy] = useState<SecurityPolicy | null>(null);
   const streamRef = useRef<PulseStream | null>(null);
   const lastCacheRef = useRef(0);
   const viewRef = useRef({ status, heartbeat, audit });
@@ -115,6 +119,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           saveCache({ savedAtMs: now, ...viewRef.current, heartbeat: hb });
         }
       },
+      onPolicy: setPolicy,
       onAudit: (item) =>
         setAudit((list) =>
           list.some((a) => a.id === item.id) ? list : [item, ...list].slice(0, AUDIT_KEEP),
@@ -129,6 +134,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (!stream.start()) stream.reconnectNow();
       } else if (s === "background") {
         stream.stop();
+        // Aprovações de Face ID não sobrevivem ao app sair da tela.
+        resetGate();
       }
     });
     return () => {
@@ -168,6 +175,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     heartbeat,
     cpuHistory,
     audit,
+    policy,
     lastUpdateMs,
     unpairedReason,
     completePairing,

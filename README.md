@@ -29,11 +29,14 @@ outro terminal (`pnpm dev:core`).
 
 | Comando | O que faz |
 |---|---|
+| `pnpm iniciar` | **Tudo de uma vez:** Core + Desktop + Metro (iPhone) |
 | `pnpm dev` | Core + Desktop em modo desenvolvimento |
 | `pnpm dev:core` | Só o Core |
 | `pnpm dev:desktop` | Só o Desktop |
+| `pnpm dev:mobile` | Só o Metro (dev client do iPhone) |
 | `pnpm --filter @pulse/mobile start` | Metro para o dev client no iPhone |
 | `pnpm --filter @pulse/client e2e` | Teste de ponta a ponta do pareamento contra o Core rodando |
+| `pnpm --filter @pulse/client e2e-control` | Teste do Control no Windows real (sem ações destrutivas) |
 | `pnpm --filter @pulse/client phone-sim "<QR>"` | Simula um iPhone pareando (testar o Desktop sem celular) |
 | `pnpm gen:protocol` | Regera os tipos TS a partir de `crates/pulse-protocol` |
 | `pnpm typecheck` | Checagem de tipos TS |

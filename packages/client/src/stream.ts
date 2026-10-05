@@ -1,4 +1,4 @@
-import type { AuditItem, Heartbeat, RemoteStatus, StreamServerMsg } from "@pulse/protocol";
+import type { AuditItem, Heartbeat, RemoteStatus, SecurityPolicy, StreamServerMsg } from "@pulse/protocol";
 import { PulseApiError, type PulseClient } from "./http.ts";
 
 /** Códigos de fechamento definidos pelo Core (crates/pulse-core/src/remote_api.rs). */
@@ -22,6 +22,8 @@ export interface StreamHandlers {
   onReady(status: RemoteStatus): void;
   onHeartbeat(hb: Heartbeat): void;
   onAudit(item: AuditItem): void;
+  /** Política de segurança (após `ready` e a cada mudança). */
+  onPolicy?(policy: SecurityPolicy): void;
 }
 
 /**
@@ -129,6 +131,9 @@ export class PulseStream {
         case "audit":
           this.lastAuditId = Math.max(this.lastAuditId ?? 0, msg.item.id);
           this.handlers.onAudit(msg.item);
+          break;
+        case "policy":
+          this.handlers.onPolicy?.(msg.policy);
           break;
         case "error":
           // O fechamento vem logo em seguida; o código de close decide o que fazer.

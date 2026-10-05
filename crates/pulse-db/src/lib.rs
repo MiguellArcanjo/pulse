@@ -3,12 +3,14 @@
 //! O banco vive fora do repositório (ver `pulse-core::paths`). Migrations são
 //! embutidas no binário e aplicadas em ordem usando `PRAGMA user_version`.
 
+mod control;
 mod devices;
 
 use std::path::Path;
 
 use rusqlite::{params, Connection, OpenFlags};
 
+pub use control::AllowedAppRow;
 pub use devices::{DeviceRow, DeviceStatus, TokenKind, TokenRow};
 pub use rusqlite;
 
@@ -28,6 +30,7 @@ pub type Result<T> = std::result::Result<T, DbError>;
 const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_devices.sql"),
+    include_str!("../migrations/0003_control.sql"),
 ];
 
 pub struct Db {

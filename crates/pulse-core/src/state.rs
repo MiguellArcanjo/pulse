@@ -6,6 +6,7 @@ use std::sync::{Mutex, MutexGuard};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use pulse_db::{AuditEntry, AuditResult, AuditRow, Db, DeviceRow, DeviceStatus, PermissionLevel};
+use pulse_protocol::control::{ProcessInfo, SecurityPolicy};
 use pulse_protocol::ipc::Event;
 use pulse_protocol::remote::{DeviceInfo, RemoteStatus};
 use pulse_protocol::{AuditItem, CoreStatus, Heartbeat, PairingResolved, PairingTicket};
@@ -14,8 +15,17 @@ use tokio::sync::broadcast;
 
 use crate::auth::{self, b64, random_bytes};
 use crate::pairing::{PairingError, Pairings};
+use crate::permissions::Confirmations;
 use crate::rate_limit::RateLimiter;
+use crate::system::SystemOps;
 use crate::tailscale;
+
+/// Permissões de um iPhone recém-pareado (decisão D9). CRITICAL só por liberação no Desktop.
+pub const DEFAULT_GRANTS: [pulse_protocol::control::Level; 3] = [
+    pulse_protocol::control::Level::Read,
+    pulse_protocol::control::Level::SafeAction,
+    pulse_protocol::control::Level::Confirm,
+];
 
 pub fn now_ms() -> u64 {
     SystemTime::now()
@@ -36,6 +46,14 @@ pub struct State {
     latest_heartbeat: Mutex<Option<Heartbeat>>,
     /// Streams abertos por dispositivo.
     online: Mutex<HashMap<String, usize>>,
+    /// Operações no Windows (falsas nos testes).
+    pub ops: Box<dyn SystemOps>,
+    confirmations: Mutex<Confirmations>,
+    policy: Mutex<SecurityPolicy>,
+    /// Última leitura de processos (atualizada pela tarefa de métricas).
+    processes: Mutex<Vec<ProcessInfo>>,
+    /// Executável de cada processo (pid → caminho), só para o Desktop.
+    process_exes: Mutex<HashMap<u32, String>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -49,6 +67,7 @@ pub struct AuditExtra<'a> {
     pub level: Option<PermissionLevel>,
     pub params: Option<Value>,
     pub error: Option<&'a str>,
+    pub duration_ms: u64,
 }
 
 pub fn audit_item(r: AuditRow) -> AuditItem {
@@ -66,6 +85,7 @@ pub fn audit_item(r: AuditRow) -> AuditItem {
 #[derive(Debug)]
 pub enum OpError {
     Pairing(PairingError),
+    Action(crate::control_ops::ActionError),
     NotFound,
     Db(pulse_db::DbError),
 }
@@ -76,6 +96,12 @@ impl From<pulse_db::DbError> for OpError {
     }
 }
 
+impl From<crate::control_ops::ActionError> for OpError {
+    fn from(e: crate::control_ops::ActionError) -> Self {
+        Self::Action(e)
+    }
+}
+
 impl From<PairingError> for OpError {
     fn from(e: PairingError) -> Self {
         Self::Pairing(e)
@@ -83,10 +109,10 @@ impl From<PairingError> for OpError {
 }
 
 impl State {
-    pub fn new(status: CoreStatus, remote_port: u16, db: Db) -> Self {
+    pub fn new(status: CoreStatus, remote_port: u16, db: Db, ops: Box<dyn SystemOps>) -> Self {
         let (events, _) = broadcast::channel(512);
         let (revocations, _) = broadcast::channel(32);
-        Self {
+        let state = Self {
             status,
             remote_port,
             db: Mutex::new(db),
@@ -96,7 +122,35 @@ impl State {
             rate_limit: RateLimiter::default(),
             latest_heartbeat: Mutex::new(None),
             online: Mutex::new(HashMap::new()),
-        }
+            ops,
+            confirmations: Mutex::new(Confirmations::default()),
+            policy: Mutex::new(SecurityPolicy::default()),
+            processes: Mutex::new(Vec::new()),
+            process_exes: Mutex::new(HashMap::new()),
+        };
+        state.load_policy();
+        state
+    }
+
+    pub(crate) fn policy_slot(&self) -> MutexGuard<'_, SecurityPolicy> {
+        lock(&self.policy)
+    }
+
+    pub(crate) fn confirmations(&self) -> MutexGuard<'_, Confirmations> {
+        lock(&self.confirmations)
+    }
+
+    pub fn processes(&self) -> Vec<ProcessInfo> {
+        lock(&self.processes).clone()
+    }
+
+    pub fn set_processes(&self, list: Vec<ProcessInfo>, exes: HashMap<u32, String>) {
+        *lock(&self.processes) = list;
+        *lock(&self.process_exes) = exes;
+    }
+
+    pub fn process_exe(&self, pid: u32) -> Option<String> {
+        lock(&self.process_exes).get(&pid).cloned()
     }
 
     /// Acesso ao banco. Chamadas são curtas; não segure o guard através de `.await`.
@@ -142,7 +196,7 @@ impl State {
             permission_level: extra.level.unwrap_or(PermissionLevel::Read),
             result,
             error: extra.error,
-            duration_ms: 0,
+            duration_ms: extra.duration_ms,
         };
         let inserted = self.db().audit(&entry);
         match inserted {
@@ -323,7 +377,10 @@ impl State {
                 name: request.device_name.clone(),
                 model: request.device_model.clone(),
                 status: DeviceStatus::Active,
-                grants: vec!["READ".into()],
+                grants: DEFAULT_GRANTS
+                    .iter()
+                    .map(|l| l.as_str().to_owned())
+                    .collect(),
                 paired_at_ms: now as i64,
                 last_seen_ms: None,
                 revoked_at_ms: None,

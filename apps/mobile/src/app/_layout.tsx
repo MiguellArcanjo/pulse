@@ -22,6 +22,7 @@ export default function RootLayout() {
           <Stack.Screen name="pair" options={{ headerShown: false, gestureEnabled: false }} />
           <Stack.Screen name="devices" options={{ title: "Dispositivos" }} />
           <Stack.Screen name="diagnostics" options={{ title: "Diagnóstico" }} />
+          <Stack.Screen name="settings" options={{ title: "Settings" }} />
         </Stack>
       </SessionProvider>
     </SafeAreaProvider>

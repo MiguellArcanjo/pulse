@@ -3,8 +3,9 @@ import type { ApiError } from "./ApiError";
 import type { AuditItem } from "./AuditItem";
 import type { Heartbeat } from "./Heartbeat";
 import type { RemoteStatus } from "./RemoteStatus";
+import type { SecurityPolicy } from "./SecurityPolicy";
 
 /**
  * Mensagens do Core no WebSocket `/v1/stream`.
  */
-export type StreamServerMsg = { "type": "ready", status: RemoteStatus, } | { "type": "heartbeat", heartbeat: Heartbeat, } | { "type": "audit", item: AuditItem, } | { "type": "error", error: ApiError, };
+export type StreamServerMsg = { "type": "ready", status: RemoteStatus, } | { "type": "heartbeat", heartbeat: Heartbeat, } | { "type": "audit", item: AuditItem, } | { "type": "policy", policy: SecurityPolicy, } | { "type": "error", error: ApiError, };

@@ -20,6 +20,8 @@ pub const APPROVAL_TTL_MS: u64 = 120_000;
 pub const DELIVERY_TTL_MS: u64 = 60_000;
 /// Provas inválidas aceitas antes de invalidar a sessão.
 pub const MAX_BAD_PROOFS: u32 = 5;
+/// Códigos errados digitados no Desktop antes de recusar o pedido.
+pub const MAX_CODE_ATTEMPTS: u32 = 3;
 
 const MAX_NAME_LEN: usize = 64;
 
@@ -29,6 +31,9 @@ enum Stage {
     Claimed {
         nonce: String,
         request: PairingRequest,
+        /// Código que o iPhone mostra; o usuário digita no Desktop.
+        code: String,
+        wrong_codes: u32,
     },
     Approved {
         nonce: String,
@@ -56,6 +61,9 @@ pub enum PairingError {
     BadRequest,
     /// Ação do Desktop num estado em que ela não cabe (ex.: aprovar antes do claim).
     WrongState,
+    WrongCode,
+    /// Errou o código vezes demais: o pedido foi recusado.
+    TooManyCodeAttempts,
 }
 
 impl PairingError {
@@ -67,6 +75,8 @@ impl PairingError {
             Self::InvalidProof => "invalid_proof",
             Self::BadRequest => "bad_request",
             Self::WrongState => "pairing_wrong_state",
+            Self::WrongCode => "wrong_code",
+            Self::TooManyCodeAttempts => "too_many_code_attempts",
         }
     }
 
@@ -78,6 +88,10 @@ impl PairingError {
             Self::InvalidProof => "Prova de pareamento inválida.",
             Self::BadRequest => "Requisição de pareamento malformada.",
             Self::WrongState => "O pareamento não está aguardando esta ação.",
+            Self::WrongCode => "Código incorreto. Confira o número mostrado no iPhone.",
+            Self::TooManyCodeAttempts => {
+                "Código incorreto várias vezes; o pedido foi recusado. Gere um novo QR."
+            }
         }
     }
 }
@@ -180,11 +194,12 @@ impl Pairings {
             pairing_id: req.pairing_id.clone(),
             device_name,
             device_model: sanitize(&req.device_model),
-            code: pairing_code(&mac),
         };
         session.stage = Stage::Claimed {
             nonce: req.device_nonce.clone(),
             request: request.clone(),
+            code: pairing_code(&mac),
+            wrong_codes: 0,
         };
         session.expires_at_ms = now_ms + APPROVAL_TTL_MS;
         Ok(request)
@@ -237,16 +252,37 @@ impl Pairings {
         }
     }
 
-    /// Dados do pedido pendente, para o Desktop criar o dispositivo antes de aprovar.
-    pub fn pending_request(
+    /// Confere o código digitado no Desktop e devolve o pedido pendente, para
+    /// criar o dispositivo antes de aprovar. Após `MAX_CODE_ATTEMPTS` erros o
+    /// pedido é recusado (o iPhone recebe `denied` no próximo poll).
+    pub fn verify_code(
         &mut self,
         id: &str,
+        typed: &str,
         now_ms: u64,
     ) -> Result<PairingRequest, PairingError> {
-        match &self.live(id, now_ms)?.stage {
-            Stage::Claimed { request, .. } => Ok(request.clone()),
-            _ => Err(PairingError::WrongState),
+        let session = self.live(id, now_ms)?;
+        let Stage::Claimed {
+            nonce,
+            request,
+            code,
+            wrong_codes,
+        } = &mut session.stage
+        else {
+            return Err(PairingError::WrongState);
+        };
+        let typed: String = typed.chars().filter(|c| c.is_ascii_digit()).collect();
+        if constant_time_eq(typed.as_bytes(), code.as_bytes()) {
+            return Ok(request.clone());
         }
+        *wrong_codes += 1;
+        if *wrong_codes >= MAX_CODE_ATTEMPTS {
+            let nonce = nonce.clone();
+            session.stage = Stage::Denied { nonce };
+            session.expires_at_ms = now_ms + DELIVERY_TTL_MS;
+            return Err(PairingError::TooManyCodeAttempts);
+        }
+        Err(PairingError::WrongCode)
     }
 
     pub fn approve(
@@ -300,6 +336,10 @@ impl Pairings {
         });
         expired_claims
     }
+}
+
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
 /// Nome vindo do iPhone: sem caracteres de controle e com tamanho limitado.
@@ -394,8 +434,14 @@ mod tests {
         let phone = Phone::scan(&ticket);
 
         let req = p.claim(&phone.claim(), 10).unwrap();
-        assert_eq!(req.code, phone.code(), "PC e iPhone mostram o mesmo código");
         assert_eq!(req.device_name, "iPhone de Miguel");
+        assert_eq!(
+            p.verify_code(&ticket.pairing_id, "000000", 11),
+            Err(PairingError::WrongCode)
+        );
+        // Aceita o código digitado com espaço, como o iPhone mostra ("123 456").
+        let typed = format!("{} {}", &phone.code()[..3], &phone.code()[3..]);
+        assert_eq!(p.verify_code(&ticket.pairing_id, &typed, 12).unwrap(), req);
 
         assert_eq!(p.poll(&phone.poll(), 20).unwrap(), PairingStatus::Pending);
         p.approve(&ticket.pairing_id, "dev1".into(), tokens(), 30)
@@ -476,6 +522,30 @@ mod tests {
                 .unwrap_or(PairingStatus::Expired),
             PairingStatus::Expired
         );
+    }
+
+    #[test]
+    fn too_many_wrong_codes_denies() {
+        let mut p = Pairings::default();
+        let ticket = p.create(0);
+        let phone = Phone::scan(&ticket);
+        p.claim(&phone.claim(), 1).unwrap();
+        for _ in 1..MAX_CODE_ATTEMPTS {
+            assert_eq!(
+                p.verify_code(&ticket.pairing_id, "999999", 2),
+                Err(PairingError::WrongCode)
+            );
+        }
+        assert_eq!(
+            p.verify_code(&ticket.pairing_id, "999999", 3),
+            Err(PairingError::TooManyCodeAttempts)
+        );
+        // Depois disso nem o código certo vale.
+        assert_eq!(
+            p.verify_code(&ticket.pairing_id, &phone.code(), 4),
+            Err(PairingError::WrongState)
+        );
+        assert_eq!(p.poll(&phone.poll(), 5).unwrap(), PairingStatus::Denied);
     }
 
     #[test]

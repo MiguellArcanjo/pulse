@@ -42,8 +42,10 @@ pub enum Request {
     },
     /// Gera um QR de pareamento (válido por pouco tempo, uso único).
     PairingCreate,
+    /// Aprova digitando o código de 6 dígitos que o iPhone mostra.
     PairingApprove {
         pairing_id: String,
+        code: String,
     },
     PairingDeny {
         pairing_id: String,

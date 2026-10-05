@@ -35,7 +35,7 @@ await claimPairing(coreUrl, {
   deviceName: process.env.PULSE_SIM_NAME ?? "iPhone simulado",
   deviceModel: "phone-sim",
 });
-console.log(`Código no "iPhone": ${pairingCode(qr, nonce)} — aprove no Pulse Desktop.`);
+console.log(`Código no "iPhone": ${pairingCode(qr, nonce)} — digite no Pulse Desktop.`);
 
 let tokens: TokenPair | null = null;
 for (;;) {

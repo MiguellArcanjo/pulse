@@ -59,8 +59,8 @@ async fn pairing_create(app: AppHandle) -> Result<PairingTicket, String> {
 }
 
 #[tauri::command]
-async fn pairing_approve(app: AppHandle, pairing_id: String) -> Result<(), String> {
-    core_link::request(&app, Request::PairingApprove { pairing_id })
+async fn pairing_approve(app: AppHandle, pairing_id: String, code: String) -> Result<(), String> {
+    core_link::request(&app, Request::PairingApprove { pairing_id, code })
         .await
         .map(|_| ())
 }

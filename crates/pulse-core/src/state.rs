@@ -284,11 +284,37 @@ impl State {
         }
     }
 
-    /// Aprovação no Desktop: cria o dispositivo, emite os tokens e os deixa
-    /// prontos para o iPhone buscar.
-    pub fn approve_pairing(&self, pairing_id: &str) -> Result<(), OpError> {
+    /// Aprovação no Desktop com o código digitado pelo usuário: cria o
+    /// dispositivo, emite os tokens e os deixa prontos para o iPhone buscar.
+    pub fn approve_pairing(&self, pairing_id: &str, code: &str) -> Result<(), OpError> {
         let now = now_ms();
-        let request = lock(&self.pairings).pending_request(pairing_id, now)?;
+        let verified = lock(&self.pairings).verify_code(pairing_id, code, now);
+        let request = match verified {
+            Ok(r) => r,
+            Err(e @ (PairingError::WrongCode | PairingError::TooManyCodeAttempts)) => {
+                let locked = e == PairingError::TooManyCodeAttempts;
+                self.audit_ext(
+                    "local:desktop",
+                    "devices",
+                    if locked {
+                        "pairing.denied"
+                    } else {
+                        "pairing.code_rejected"
+                    },
+                    AuditResult::Denied,
+                    AuditExtra {
+                        level: Some(PermissionLevel::Confirm),
+                        error: Some(e.code()),
+                        ..Default::default()
+                    },
+                );
+                if locked {
+                    self.resolve_pairing(pairing_id, "denied");
+                }
+                return Err(e.into());
+            }
+            Err(e) => return Err(e.into()),
+        };
         let device_id = b64(&random_bytes::<12>());
         let tokens = {
             let db = self.db();

@@ -884,15 +884,39 @@ button.nav-item:focus-visible,
   font-size: 15px;
 }
 
-.pair-code {
-  font-size: 36px;
+.pair-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.pair-code-input {
+  width: 220px;
+  text-align: center;
+  font: inherit;
+  font-size: 34px;
   font-weight: 700;
   letter-spacing: 0.12em;
   font-variant-numeric: tabular-nums;
-  padding: 8px 18px;
+  padding: 8px 12px;
   border-radius: 12px;
   background: var(--card);
+  color: var(--text);
   border: 1px solid var(--border-strong);
+}
+
+.pair-code-input::placeholder {
+  color: var(--text-faint);
+}
+
+.pair-code-input:focus {
+  outline: 2px solid var(--blue-soft);
+  outline-offset: 2px;
+}
+
+.pair-code-input[aria-invalid] {
+  border-color: var(--red);
 }
 
 .modal-actions {

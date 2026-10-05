@@ -191,7 +191,7 @@ Desktop                         Core                          iPhone
 
 QR contém apenas: versão, URL `https://<pc>.<tailnet>.ts.net`, `pairing_id`, `secret`, expiração. **Nada** reutilizável depois do uso.
 
-O código de 6 dígitos (comparação visual) protege contra QR fotografado/vazado: um atacante que capture o QR precisaria também que você aprovasse um código que não bate com o seu celular.
+**Revisado na implementação (M2):** o código de 6 dígitos aparece **só no iPhone** e o usuário o **digita** no Desktop; o Core confere (tempo constante) e recusa o pedido após 3 erros. Comparar visualmente permitiria aprovar no automático: se um atacante usar um QR fotografado, o iPhone legítimo mostra apenas um erro, e sem código para digitar não há como aprovar o intruso.
 
 Cada dispositivo recebe identidade própria; não existe senha compartilhada.
 

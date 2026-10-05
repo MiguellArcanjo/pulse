@@ -2,9 +2,8 @@
 
 /**
  * Um iPhone leu o QR e pede acesso.
+ *
+ * O código de conferência **não** vem aqui de propósito: o usuário precisa
+ * digitá-lo no Desktop a partir do que o iPhone mostra (ver `PairingApprove`).
  */
-export type PairingRequest = { pairingId: string, deviceName: string, deviceModel: string, 
-/**
- * Código de 6 dígitos que deve ser igual ao mostrado no iPhone.
- */
-code: string, };
+export type PairingRequest = { pairingId: string, deviceName: string, deviceModel: string, };

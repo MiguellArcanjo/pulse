@@ -155,13 +155,19 @@ async function main() {
   });
   if (claim.status !== "pending") fail(`esperava pending, veio ${claim.status}`);
   const req = (await requested) as unknown as PairingRequest;
-  if (req.code !== pairingCode(qr, nonce)) fail(`códigos diferentes: PC ${req.code}`);
-  ok(`Desktop recebeu "${req.deviceName}" com o mesmo código ${req.code}`);
+  if ("code" in req) fail("o Desktop não deveria receber o código");
+  const code = pairingCode(qr, nonce);
+  ok(`Desktop recebeu o pedido de "${req.deviceName}"; o iPhone mostra ${code}`);
 
   step("iPhone espera; Desktop autoriza");
   const poll = () => pollPairing(coreUrl, { pairingId: qr.pairingId, deviceNonce: nonce, proof: pollProof(qr, nonce) });
   if ((await poll()).status !== "pending") fail("poll deveria estar pending");
-  await ipc.request("pairing_approve", { pairing_id: qr.pairingId });
+  const wrong = code === "000000" ? "111111" : "000000";
+  await ipc
+    .request("pairing_approve", { pairing_id: qr.pairingId, code: wrong })
+    .then(() => fail("código errado foi aceito"))
+    .catch((e) => ok(`código errado recusado: ${String(e).slice(0, 60)}`));
+  await ipc.request("pairing_approve", { pairing_id: qr.pairingId, code });
   const approved = await poll();
   if (approved.status !== "approved") fail(`esperava approved, veio ${approved.status}`);
   ok(`tokens recebidos para o dispositivo ${approved.deviceId}`);

@@ -131,6 +131,8 @@ impl From<PairingError> for ApiErr {
             PairingError::AlreadyClaimed | PairingError::WrongState => StatusCode::CONFLICT,
             PairingError::InvalidProof => StatusCode::UNAUTHORIZED,
             PairingError::BadRequest => StatusCode::BAD_REQUEST,
+            // Só acontecem no Desktop (IPC), mas o mapeamento precisa ser total.
+            PairingError::WrongCode | PairingError::TooManyCodeAttempts => StatusCode::FORBIDDEN,
         };
         Self::new(status, e.code(), e.message())
     }
@@ -598,7 +600,16 @@ mod tests {
         .await;
         assert_eq!(body["status"], "pending");
 
-        state.approve_pairing(&id).unwrap();
+        // O usuário digita no Desktop o código que o iPhone mostra.
+        let code = pulse_protocol::remote::pairing_code(&hmac(
+            &secret,
+            &format!("{PAIRING_DOMAIN}|sas|{id}|{nonce}"),
+        ));
+        assert!(
+            state.approve_pairing(&id, "000000").is_err(),
+            "código errado"
+        );
+        state.approve_pairing(&id, &code).unwrap();
 
         let (st, body) = call(
             &app,

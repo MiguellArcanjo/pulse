@@ -119,8 +119,8 @@ async fn dispatch(state: &State, request: Request, topics: &mut HashSet<Topic>) 
             .map(|rows| ResponseData::Audit(rows.into_iter().map(audit_item).collect()))
             .map_err(OpError::from),
         Request::PairingCreate => Ok(ResponseData::Pairing(state.create_pairing().await)),
-        Request::PairingApprove { pairing_id } => state
-            .approve_pairing(&pairing_id)
+        Request::PairingApprove { pairing_id, code } => state
+            .approve_pairing(&pairing_id, &code)
             .map(|()| ResponseData::Done),
         Request::PairingDeny { pairing_id } => {
             state.deny_pairing(&pairing_id).map(|()| ResponseData::Done)

@@ -1,5 +1,5 @@
 // "Add Computer": lê o QR do Pulse Desktop, prova que tem o segredo (HMAC),
-// mostra o código de conferência e espera a aprovação no PC.
+// mostra o código que o usuário digita no PC e espera a aprovação.
 //
 // Também abre por deep link (`pulse://pair?...`), quando o QR é lido pela
 // câmera nativa do iPhone.
@@ -39,9 +39,11 @@ type Phase =
   | { kind: "error"; message: string };
 
 function defaultName(): string {
-  // No iOS 16+ o nome real do aparelho exige entitlement; o modelo é o que temos.
+  // No iOS 16+ o iOS só informa o nome genérico ("iPhone") sem um entitlement
+  // especial; nesse caso o modelo ("iPhone 15") identifica melhor.
   const model = Device.modelName ?? "iPhone";
-  return Device.deviceName && Device.deviceName !== model ? Device.deviceName : model;
+  const name = Device.deviceName;
+  return name && name !== "iPhone" && name !== model ? name : model;
 }
 
 function describeError(e: unknown): string {
@@ -103,7 +105,7 @@ export default function Pair() {
         deviceNonce: nonce,
         proof: claimProof(qr, nonce),
         deviceName: name.trim() || defaultName(),
-        deviceModel: Device.modelId ? String(Device.modelId) : (Device.modelName ?? ""),
+        deviceModel: Device.modelName ?? (Device.modelId ? String(Device.modelId) : ""),
       });
     } catch (e) {
       setPhase({ kind: "error", message: describeError(e) });
@@ -183,12 +185,11 @@ export default function Pair() {
       {phase.kind === "waiting" && (
         <Card style={s.center}>
           <Ionicons name="desktop-outline" size={36} color={colors.blueSoft} />
-          <Text style={s.waitTitle}>Aprove no PC</Text>
-          <Text style={s.hint}>O Pulse Desktop deve mostrar este mesmo código:</Text>
+          <Text style={s.waitTitle}>Digite este código no PC</Text>
           <Text style={s.code} accessibilityLabel={`Código ${phase.code.split("").join(" ")}`}>
             {phase.code.slice(0, 3)} {phase.code.slice(3)}
           </Text>
-          <Text style={s.hint}>Se for diferente, recuse no PC.</Text>
+          <Text style={s.hint}>No Pulse Desktop, digite o código e clique em Autorizar.</Text>
           <ActivityIndicator color={colors.blue} style={{ marginTop: 8 }} />
         </Card>
       )}

@@ -1,17 +1,19 @@
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
-## Pulse-specific rules (override the generic Expo guidance below)
+## Morph-specific rules (override the generic Expo guidance below)
 
 - **Do not use EAS Build/Submit/Update.** The project uses a free Apple account; EAS device
   builds require a paid Apple Developer membership. iOS builds come from
   `.github/workflows/ios-build.yml` (unsigned IPA on a macOS runner), signed and installed by
-  AltServer on Windows. See `docs/IOS-SIDELOAD.md` and `docs/ARCHITECTURE.md` §15.
+  AltServer on Windows. See `docs/IOS-SIDELOAD.md`.
 - iOS only. Development happens on Windows: no Xcode, no simulator.
-- Navigation library not decided yet (Expo Router vs React Navigation); decide before adding it.
-- Use pnpm from the monorepo root (`pnpm --filter @pulse/mobile ...`); `pnpm exec expo install`
+- Navigation: Expo Router (`src/app/`).
+- Use pnpm from the monorepo root (`pnpm --filter @morph/mobile ...`); `pnpm exec expo install`
   inside `apps/mobile` for SDK-aligned versions.
-- Never store secrets outside `expo-secure-store`. Never call AI providers or Windows services
-  directly from the app — everything goes through Pulse Core.
+- The app is a **renderer** of the Morph Protocol: never render AI output that did not pass
+  `@morph/protocol` validation, and never generate/evaluate code at runtime.
+- Never store secrets outside `expo-secure-store`. Never call AI providers directly from the
+  app — everything goes through `apps/server`.
 
 ## Expo has changed — do not trust your training data
 
@@ -38,13 +40,13 @@ Run lint and typecheck before declaring any task done.
 
 ## Navigation & Routing
 
-- (Template default, not yet adopted by Pulse) Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
+- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
 - Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
 - Docs: https://docs.expo.dev/router/introduction.md
 
 ## Building
 
-Not EAS — see "Pulse-specific rules" above.
+Not EAS — see "Morph-specific rules" above.
 
 ## Rules
 

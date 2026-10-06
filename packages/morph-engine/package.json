@@ -1,0 +1,23 @@
+{
+  "name": "@morph/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Morph Engine: funções puras que validam e aplicam operações sobre a AppSpec (validação semântica, versões, diff, rollback). Sem banco, sem rede, sem IA.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fixtures": "./src/fixtures/treinos.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types --no-warnings=ExperimentalWarning \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@morph/protocol": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "typescript": "~6.0.3"
+  }
+}

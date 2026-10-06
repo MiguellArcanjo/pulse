@@ -1,15 +1,14 @@
 {
   "expo": {
-    "name": "Pulse",
-    "slug": "pulse",
-    "scheme": "pulse",
+    "name": "Morph",
+    "slug": "morph",
+    "scheme": "morph",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#060a13",
+    "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "dev.pulse.mobile",
+      "bundleIdentifier": "dev.morph.mobile",
       "supportsTablet": false,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -18,22 +17,10 @@
     "plugins": [
       "expo-router",
       "expo-dev-client",
-      [
-        "expo-local-authentication",
-        {
-          "faceIDPermission": "O Pulse usa o Face ID para proteger ações sensíveis no seu PC."
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "O Pulse usa a câmera para ler o QR Code de pareamento do seu PC.",
-          "microphonePermission": false,
-          "recordAudioAndroidPermission": false
-        }
-      ],
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "expo-sqlite",
+      "@react-native-community/datetimepicker"
     ]
   }
 }

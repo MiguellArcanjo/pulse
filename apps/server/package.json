@@ -1,0 +1,28 @@
+{
+  "name": "@morph/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Servidor do Morph: API do app, versões da spec, registros, Evolution. Node + Postgres (PGlite no desenvolvimento).",
+  "scripts": {
+    "dev": "node --experimental-strip-types --no-warnings=ExperimentalWarning --watch src/main.ts",
+    "start": "node --experimental-strip-types --no-warnings=ExperimentalWarning src/main.ts",
+    "pair": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/pairing-code.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types --no-warnings=ExperimentalWarning \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@morph/engine": "workspace:*",
+    "@morph/protocol": "workspace:*",
+    "fastify": "^5.12.5",
+    "pg": "^8.23.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@morph/client": "workspace:*",
+    "@types/node": "^22.19.0",
+    "@types/pg": "^8.23.1",
+    "typescript": "~6.0.3"
+  }
+}

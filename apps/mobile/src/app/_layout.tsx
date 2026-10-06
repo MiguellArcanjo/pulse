@@ -1,30 +1,24 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { SessionProvider } from "../session/SessionProvider";
-import { colors } from "../theme";
+import { MorphProvider } from "../data/MorphProvider";
+import { ThemeProvider, useTheme } from "../design/theme";
+
+function Navigator() {
+  const { colors, scheme } = useTheme();
+  return (
+    <>
+      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+    </>
+  );
+}
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
-      <SessionProvider>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: colors.bg },
-            headerTintColor: colors.text,
-            headerShadowVisible: false,
-            contentStyle: { backgroundColor: colors.bg },
-            headerBackButtonDisplayMode: "minimal",
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="pair" options={{ headerShown: false, gestureEnabled: false }} />
-          <Stack.Screen name="devices" options={{ title: "Dispositivos" }} />
-          <Stack.Screen name="diagnostics" options={{ title: "Diagnóstico" }} />
-          <Stack.Screen name="settings" options={{ title: "Settings" }} />
-        </Stack>
-      </SessionProvider>
-    </SafeAreaProvider>
+    <ThemeProvider>
+      <MorphProvider>
+        <Navigator />
+      </MorphProvider>
+    </ThemeProvider>
   );
 }

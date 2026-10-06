@@ -1,72 +1,56 @@
 ---
 name: iniciar
-description: Sobe o ambiente de desenvolvimento do Pulse inteiro (Core, Desktop e Metro do iPhone) e confere se cada parte está de pé. Use quando o usuário disser "iniciar", "inicia", "sobe tudo", "liga o Pulse" ou rodar /iniciar.
+description: Sobe o ambiente de desenvolvimento do Morph (servidor local + Metro do app) e confere se está de pé. Use quando o usuário disser "iniciar", "inicia", "sobe tudo", "liga o Morph" ou rodar /iniciar.
 ---
 
-# Iniciar o ambiente do Pulse
+# Iniciar o ambiente do Morph
 
-O usuário quer tudo rodando sem executar comando por comando. Faça nesta ordem e
-só relate no final (em PT-BR, curto).
+O usuário quer tudo rodando sem executar comando por comando. Faça nesta ordem e só relate
+no final (em PT-BR, curto).
+
+> `pnpm iniciar` sobe o servidor local (porta 47700) e o Metro (porta 8081). O iPhone usa o
+> servidor da Heroku; o servidor local serve para testes e para o `pnpm morph`.
 
 ## 1. Ver o que já está rodando
 
 ```powershell
-Get-Process pulse-core, pulse-desktop -ErrorAction SilentlyContinue | Select-Object Id, ProcessName, Path
-Get-NetTCPConnection -State Listen -LocalPort 47610, 1420, 8081 -ErrorAction SilentlyContinue | Select-Object LocalPort, OwningProcess
+Get-NetTCPConnection -State Listen -LocalPort 47700, 8081 -ErrorAction SilentlyContinue | Select-Object LocalPort, OwningProcess
 ```
 
-- Se Core, Desktop e Metro (portas 47610, 1420 e 8081) já estão de pé, **não suba de novo**:
-  diga que já está tudo rodando e pule para o passo 4.
-- Se só parte está de pé, **não mate processos do usuário**. Explique o que está rodando e
-  pergunte se pode reiniciar. (Um segundo Core recusa iniciar: o named pipe é exclusivo.)
+Se as portas 47700 e 8081 já estão escutando, **não suba de novo** e não mate o processo: diga que já
+está rodando e pule para o passo 4.
 
-## 2. Subir tudo
+## 2. Subir
 
-Rode no **painel de Terminal do usuário** (ferramenta `run_in_terminal`, título "Pulse"),
+Rode no **painel de Terminal do usuário** (ferramenta `run_in_terminal`, título "Morph"),
 da raiz do repositório:
 
 ```
 pnpm iniciar
 ```
 
-**Não** use Bash com `run_in_background`: tarefas em segundo plano expiram (30 min) e
-derrubam o ambiente no meio do uso. No painel de Terminal o processo fica até o usuário
-parar (Ctrl+C), e ele vê os logs.
-
-`pnpm iniciar` = `concurrently` com `pnpm dev:core`, `pnpm dev:desktop` e `pnpm dev:mobile`.
-A primeira compilação Rust pode levar alguns minutos.
+**Não** use Bash com `run_in_background`: tarefas em segundo plano expiram e derrubam o
+ambiente no meio do uso. O servidor recarrega sozinho quando o código muda (`--watch`).
 
 ## 3. Esperar e conferir
 
-Leia o terminal com `read_terminal` (`tab_id` devolvido, `wait_for_output_ms` de alguns
-segundos, repetindo) até aparecerem os sinais abaixo, ou um erro:
+Leia o terminal com `read_terminal` (`wait_for_output_ms` de alguns segundos, repetindo) até
+aparecerem `Server listening at http://127.0.0.1:47700` e `Waiting on http://localhost:8081`
+(ou `Metro waiting`), ou um erro (`Error`, `EADDRINUSE`,
+`exited with code`). Confira:
 
-| Parte | Sinal de pronto no log | Conferência extra |
-|---|---|---|
-| Core | `Pulse Core ... iniciado` | `curl -s http://127.0.0.1:47610/v1/health` → `"ok":true` |
-| Desktop | `local:desktop conectado` (linha do core) | — |
-| Metro | `Waiting on http://localhost:8081` ou `Metro waiting` | porta 8081 escutando |
-
-Sinais de erro: `error[`, `error:`, `exited with code`, `EADDRINUSE`, `já existe um Pulse Core`.
-Se algo falhar, mostre as linhas relevantes do log e o diagnóstico; não tente "consertar"
-matando processos sem perguntar.
-
-## 4. Conferir o Tailscale (só leitura)
-
-```powershell
-& "C:\Program Files\Tailscale\tailscale.exe" serve status
+```bash
+curl -s http://127.0.0.1:47700/v1/health
 ```
 
-Deve mostrar `proxy http://127.0.0.1:47610`. Se não mostrar, **não rode** `tailscale serve`
-(muda a configuração do usuário): diga o comando para ele rodar:
-`tailscale serve --bg --https=443 http://127.0.0.1:47610`.
+Deve responder `{"ok":true}`. Se o log mostrar `Código de pareamento: XXXXX-XXXXX`, é porque
+nenhum aparelho foi pareado ainda: repasse o código ao usuário (vale 15 minutos).
 
-## 5. Relatar
+## 4. Relatar
 
-Uma tabela curta com ✅/❌ para Core, Desktop, Metro e Tailscale Serve, mais:
-- no iPhone: abrir o Pulse (dev client) no mesmo Wi-Fi; ele recarrega o código sozinho;
-- para parar tudo: Ctrl+C na aba "Pulse" do Terminal (ou eu paro com `stop_terminal_tab`, se pedirem).
-
-Para **reiniciar** (ex.: depois de mudar código Rust do Core): pare a aba com
-`stop_terminal_tab` e rode o passo 2 de novo. Código TypeScript (Desktop e iPhone) recarrega
-sozinho, sem reiniciar.
+Tabela curta com ✅/❌ para servidor e Metro, mais:
+- no iPhone: abrir o Morph (dev client) na mesma rede; ele carrega o código do PC;
+- dados locais em `apps/server/.data/pglite` (fora do Git);
+- para testar mudanças sem IA: `pnpm morph login http://127.0.0.1:47700 <código>` e
+  `pnpm morph apply criar-treinos`;
+- para parar: Ctrl+C na aba "Morph" do Terminal (ou `stop_terminal_tab`, se pedirem).

@@ -1,6 +1,6 @@
-# Gera o Pulse Mobile como IPA NÃO ASSINADO num runner macOS.
+# Gera o Morph como IPA NÃO ASSINADO num runner macOS.
 # A assinatura acontece no Windows, pelo AltServer, com o seu Apple ID gratuito.
-# Ver docs/ARCHITECTURE.md §15 e docs/IOS-SIDELOAD.md.
+# Ver docs/IOS-SIDELOAD.md.
 
 name: iOS build
 
@@ -70,8 +70,8 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild \
-            -workspace Pulse.xcworkspace \
-            -scheme Pulse \
+            -workspace Morph.xcworkspace \
+            -scheme Morph \
             -configuration "$CONFIGURATION" \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
@@ -85,18 +85,18 @@ jobs:
       - name: Empacotar IPA
         working-directory: apps/mobile/ios
         run: |
-          APP="build/Build/Products/${CONFIGURATION}-iphoneos/Pulse.app"
+          APP="build/Build/Products/${CONFIGURATION}-iphoneos/Morph.app"
           test -d "$APP"
           mkdir -p Payload
           cp -R "$APP" Payload/
-          IPA="Pulse-${{ matrix.variant }}-${GITHUB_SHA::7}.ipa"
+          IPA="Morph-${{ matrix.variant }}-${GITHUB_SHA::7}.ipa"
           zip -qry "$IPA" Payload
           echo "IPA=$IPA" >> "$GITHUB_ENV"
           ls -lh "$IPA"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: pulse-ios-${{ matrix.variant }}
+          name: morph-ios-${{ matrix.variant }}
           path: apps/mobile/ios/${{ env.IPA }}
           retention-days: 14
           if-no-files-found: error

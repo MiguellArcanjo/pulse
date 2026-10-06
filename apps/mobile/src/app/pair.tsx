@@ -1,272 +1,94 @@
-// "Add Computer": lê o QR do Pulse Desktop, prova que tem o segredo (HMAC),
-// mostra o código que o usuário digita no PC e espera a aprovação.
-//
-// Também abre por deep link (`pulse://pair?...`), quando o QR é lido pela
-// câmera nativa do iPhone.
+import { router } from "expo-router";
+import { useState } from "react";
+import { KeyboardAvoidingView, StyleSheet, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ApiError } from "@morph/client";
+import { useMorph } from "../data/MorphProvider";
+import { Tap, Txt } from "../design/primitives";
+import { useTheme } from "../design/theme";
+import { GUTTER, radius, space } from "../design/tokens";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TextInput, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
-import { CameraView, useCameraPermissions } from "expo-camera";
-import * as Crypto from "expo-crypto";
-import * as Device from "expo-device";
-import * as Haptics from "expo-haptics";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import {
-  claimPairing,
-  claimProof,
-  newNonce,
-  pairingCode,
-  pairingFromParams,
-  parsePairingQr,
-  pollPairing,
-  pollProof,
-  PulseApiError,
-  PulseNetworkError,
-} from "@pulse/client";
-import type { PairingQr } from "@pulse/protocol";
-import { usePulse } from "../session/SessionProvider";
-import { Button, Card, Screen } from "../ui";
-import { colors, radius } from "../theme";
-
-const POLL_EVERY_MS = 1500;
-
-type Phase =
-  | { kind: "scan" }
-  | { kind: "name"; qr: PairingQr }
-  | { kind: "claiming"; qr: PairingQr }
-  | { kind: "waiting"; qr: PairingQr; code: string }
-  | { kind: "error"; message: string };
-
-function defaultName(): string {
-  // No iOS 16+ o iOS só informa o nome genérico ("iPhone") sem um entitlement
-  // especial; nesse caso o modelo ("iPhone 15") identifica melhor.
-  const model = Device.modelName ?? "iPhone";
-  const name = Device.deviceName;
-  return name && name !== "iPhone" && name !== model ? name : model;
-}
-
-function describeError(e: unknown): string {
-  if (e instanceof PulseNetworkError) {
-    return `${e.message} Confira se o Tailscale está ligado no iPhone e no PC.`;
-  }
-  if (e instanceof PulseApiError) return e.message;
-  return String(e);
-}
-
+/** Conectar o app ao servidor: endereço + código de pareamento (aparece no log do servidor). */
 export default function Pair() {
-  const params = useLocalSearchParams<Record<string, string>>();
-  const { completePairing, unpairedReason, paired } = usePulse();
-  const [phase, setPhase] = useState<Phase>({ kind: "scan" });
-  const [name, setName] = useState(defaultName);
-  const nonceRef = useRef<string | null>(null);
-  const cancelled = useRef(false);
+  const morph = useMorph();
+  const { colors, accent } = useTheme();
+  const insets = useSafeAreaInsets();
+  const [url, setUrl] = useState("https://");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    cancelled.current = false;
-    return () => {
-      cancelled.current = true;
-    };
-  }, []);
-
-  // Já pareado (ex.: abriu um deep link antigo): vai para a Home.
-  useEffect(() => {
-    if (paired) router.replace("/");
-  }, [paired]);
-
-  // Deep link: os parâmetros do QR já vêm na rota.
-  useEffect(() => {
-    if (!params.p) return;
-    const qr = pairingFromParams((k) => (typeof params[k] === "string" ? params[k] : undefined));
-    setPhase(qr ? { kind: "name", qr } : { kind: "error", message: "Este link de pareamento é inválido." });
-  }, [params]);
-
-  const onScanned = useCallback((data: string) => {
-    setPhase((p) => {
-      if (p.kind !== "scan") return p;
-      const qr = parsePairingQr(data);
-      if (!qr) return p; // ignora QRs que não são do Pulse e continua lendo
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      return { kind: "name", qr };
-    });
-  }, []);
-
-  const start = async (qr: PairingQr) => {
-    if (qr.expiresAtMs < Date.now()) {
-      setPhase({ kind: "error", message: "Este QR expirou. Gere outro no Pulse Desktop." });
-      return;
-    }
-    setPhase({ kind: "claiming", qr });
-    const nonce = newNonce(Crypto.getRandomBytes);
-    nonceRef.current = nonce;
+  const submit = async () => {
+    setError(null);
+    const serverUrl = url.trim().replace(/\/+$/, "");
+    if (!/^https?:\/\/.+/.test(serverUrl)) return setError("Endereço inválido.");
+    setBusy(true);
     try {
-      await claimPairing(qr.coreUrl, {
-        pairingId: qr.pairingId,
-        deviceNonce: nonce,
-        proof: claimProof(qr, nonce),
-        deviceName: name.trim() || defaultName(),
-        deviceModel: Device.modelName ?? (Device.modelId ? String(Device.modelId) : ""),
-      });
-    } catch (e) {
-      setPhase({ kind: "error", message: describeError(e) });
-      return;
-    }
-    setPhase({ kind: "waiting", qr, code: pairingCode(qr, nonce) });
-    void poll(qr, nonce);
-  };
-
-  const poll = async (qr: PairingQr, nonce: string) => {
-    while (!cancelled.current) {
-      await new Promise((r) => setTimeout(r, POLL_EVERY_MS));
-      if (cancelled.current) return;
-      try {
-        const st = await pollPairing(qr.coreUrl, {
-          pairingId: qr.pairingId,
-          deviceNonce: nonce,
-          proof: pollProof(qr, nonce),
-        });
-        if (st.status === "pending") continue;
-        if (st.status === "approved") {
-          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          await completePairing({ coreUrl: qr.coreUrl, deviceId: st.deviceId, tokens: st.tokens });
-          router.replace("/");
-          return;
-        }
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        setPhase({
-          kind: "error",
-          message: st.status === "denied" ? "O acesso foi recusado no PC." : "O pedido expirou. Gere um QR novo no PC.",
-        });
-        return;
-      } catch (e) {
-        // Oscilação de rede durante a espera não encerra o pareamento.
-        if (e instanceof PulseNetworkError) continue;
-        setPhase({ kind: "error", message: describeError(e) });
-        return;
-      }
+      await morph.pair(serverUrl, code.trim());
+      router.replace("/");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) setError("Código inválido ou vencido. Gere outro no servidor.");
+      else if (err instanceof ApiError && err.status === 429) setError("Muitas tentativas. Espere alguns minutos.");
+      else if (err instanceof ApiError && err.offline) setError("Não foi possível falar com o servidor. Confira o endereço.");
+      else setError("Algo deu errado. Tente de novo.");
+    } finally {
+      setBusy(false);
     }
   };
 
+  const input = [styles.input, { backgroundColor: colors.surfaceStrong, color: colors.text, borderColor: colors.border }];
   return (
-    <Screen title="Adicionar PC" subtitle="Conecte este iPhone ao Pulse do seu computador.">
-      {unpairedReason && phase.kind === "scan" && (
-        <Card style={s.notice}>
-          <Text style={s.noticeText}>{unpairedReason}</Text>
-        </Card>
-      )}
-
-      {phase.kind === "scan" && <Scanner onScanned={onScanned} />}
-
-      {phase.kind === "name" && (
-        <Card>
-          <Text style={s.label}>Nome deste iPhone no PC</Text>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={[styles.root, { paddingTop: insets.top + space.xxl }]}>
+        <Txt variant="title" style={{ letterSpacing: -0.5 }}>
+          morph
+        </Txt>
+        <View style={{ gap: space.sm, marginTop: space.xxl }}>
+          <Txt variant="largeTitle">Conectar ao servidor</Txt>
+          <Txt tone="secondary">O código aparece no log do servidor e vale 15 minutos.</Txt>
+        </View>
+        <View style={{ gap: space.md, marginTop: space.xl }}>
           <TextInput
-            style={s.input}
-            value={name}
-            onChangeText={setName}
-            maxLength={64}
+            value={url}
+            onChangeText={setUrl}
+            autoCapitalize="none"
             autoCorrect={false}
-            returnKeyType="done"
-            accessibilityLabel="Nome deste iPhone"
+            keyboardType="url"
+            placeholder="https://seu-app.herokuapp.com"
+            placeholderTextColor={colors.textTertiary}
+            style={input}
           />
-          <Text style={s.hint}>{phase.qr.coreUrl}</Text>
-          <Button label="Pedir acesso" onPress={() => void start(phase.qr)} />
-          <Button label="Ler outro QR" variant="secondary" onPress={() => setPhase({ kind: "scan" })} />
-        </Card>
-      )}
-
-      {phase.kind === "claiming" && (
-        <Card style={s.center}>
-          <ActivityIndicator color={colors.blue} />
-          <Text style={s.hint}>Falando com o PC…</Text>
-        </Card>
-      )}
-
-      {phase.kind === "waiting" && (
-        <Card style={s.center}>
-          <Ionicons name="desktop-outline" size={36} color={colors.blueSoft} />
-          <Text style={s.waitTitle}>Digite este código no PC</Text>
-          <Text style={s.code} accessibilityLabel={`Código ${phase.code.split("").join(" ")}`}>
-            {phase.code.slice(0, 3)} {phase.code.slice(3)}
-          </Text>
-          <Text style={s.hint}>No Pulse Desktop, digite o código e clique em Autorizar.</Text>
-          <ActivityIndicator color={colors.blue} style={{ marginTop: 8 }} />
-        </Card>
-      )}
-
-      {phase.kind === "error" && (
-        <Card>
-          <View style={s.errorRow}>
-            <Ionicons name="alert-circle" size={20} color={colors.red} />
-            <Text style={s.errorText}>{phase.message}</Text>
-          </View>
-          <Button label="Ler QR de novo" onPress={() => setPhase({ kind: "scan" })} />
-        </Card>
-      )}
-
-      <Text style={s.footnote}>
-        No PC: Pulse Desktop → Dispositivos → Adicionar dispositivo. iPhone e PC precisam estar no
-        Tailscale.
-      </Text>
-    </Screen>
+          <TextInput
+            value={code}
+            onChangeText={setCode}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            placeholder="ABCDE-FGHJK"
+            placeholderTextColor={colors.textTertiary}
+            style={[input, styles.code]}
+          />
+          {error && (
+            <Txt variant="footnote" tone="danger">
+              {error}
+            </Txt>
+          )}
+          <Tap
+            onPress={busy || code.trim().length < 10 ? undefined : () => void submit()}
+            style={[styles.button, { backgroundColor: accent.main, opacity: busy || code.trim().length < 10 ? 0.5 : 1 }]}
+          >
+            <Txt variant="headline" tone="onAccent">
+              {busy ? "Conectando…" : "Conectar"}
+            </Txt>
+          </Tap>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
-function Scanner({ onScanned }: { onScanned: (data: string) => void }) {
-  const [permission, requestPermission] = useCameraPermissions();
-
-  if (!permission) return <ActivityIndicator color={colors.blue} />;
-  if (!permission.granted) {
-    return (
-      <Card>
-        <Text style={s.hint}>O Pulse usa a câmera só para ler o QR Code de pareamento.</Text>
-        <Button label="Permitir câmera" onPress={() => void requestPermission()} />
-      </Card>
-    );
-  }
-  return (
-    <View style={s.camera}>
-      <CameraView
-        style={StyleSheet.absoluteFill}
-        facing="back"
-        barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-        onBarcodeScanned={({ data }) => onScanned(data)}
-      />
-      <View style={s.frame} pointerEvents="none" />
-    </View>
-  );
-}
-
-const s = StyleSheet.create({
-  notice: { borderColor: colors.amberSoft, backgroundColor: colors.amberSoft },
-  noticeText: { color: colors.amber, fontSize: 14 },
-  camera: { height: 360, borderRadius: radius.card, overflow: "hidden", backgroundColor: "#000" },
-  frame: {
-    position: "absolute",
-    top: "18%",
-    left: "18%",
-    right: "18%",
-    bottom: "18%",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.7)",
-    borderRadius: 16,
-  },
-  label: { color: colors.dim, fontSize: 13, fontWeight: "600" },
-  input: {
-    color: colors.text,
-    backgroundColor: colors.bg,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.control,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-  hint: { color: colors.dim, fontSize: 14, textAlign: "center" },
-  center: { alignItems: "center", paddingVertical: 24, gap: 10 },
-  waitTitle: { color: colors.text, fontSize: 20, fontWeight: "700" },
-  code: { color: colors.text, fontSize: 44, fontWeight: "700", letterSpacing: 4, fontVariant: ["tabular-nums"] },
-  errorRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
-  errorText: { color: colors.text, fontSize: 15, flex: 1 },
-  footnote: { color: colors.faint, fontSize: 13, textAlign: "center", marginTop: 8 },
+const styles = StyleSheet.create({
+  root: { flex: 1, paddingHorizontal: GUTTER },
+  input: { height: 52, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: space.lg, fontSize: 16 },
+  code: { fontSize: 20, letterSpacing: 3, fontWeight: "600", textAlign: "center" },
+  button: { height: 52, borderRadius: radius.md, alignItems: "center", justifyContent: "center", marginTop: space.sm },
 });

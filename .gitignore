@@ -1,25 +1,20 @@
-# Rust (também builds com CARGO_TARGET_DIR relativo em subpastas)
-/target/
-**/target/
-
 # Node
 node_modules/
 dist/
 *.tsbuildinfo
 
-# Tauri
-apps/desktop/src-tauri/gen/schemas/
-
 # Mobile (gerado pelo expo prebuild no CI)
 apps/mobile/ios/
 apps/mobile/android/
 
-# Dados locais — o banco do Pulse NUNCA fica no repositório
+# Dados locais (PGlite, token do script de dev) e segredos: nunca no repositório (o repositório é público)
 *.db
+.data/
 *.db-wal
 *.db-shm
 .env
 .env.*
+!.env.example
 
 # Editor / SO
 .vscode/*

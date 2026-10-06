@@ -1,24 +1,21 @@
 {
-  "name": "@pulse/client",
+  "name": "@morph/client",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Cliente da API remota do Pulse Core (HTTP + WebSocket). Sem dependência de DOM ou React Native.",
+  "description": "Cliente da API do Morph e sincronização dos dados. Sem React Native: roda no app e nos testes do Node.",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types src/*.test.ts",
-    "e2e": "node --experimental-strip-types scripts/e2e-pairing.ts",
-    "phone-sim": "node --experimental-strip-types scripts/phone-sim.ts",
-    "e2e-control": "node --experimental-strip-types scripts/e2e-control.ts"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@noble/hashes": "^2.4.0",
-    "@pulse/protocol": "workspace:*"
+    "@morph/engine": "workspace:*",
+    "@morph/protocol": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^22.19.0",
     "typescript": "~6.0.3"
   }
 }

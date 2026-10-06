@@ -27,7 +27,7 @@ export default function SpecScreen() {
   return (
     <ThemeProvider accent={tool.accent}>
       <BackBar title={tool.home === screen.id ? null : screen.title} />
-      <ScreenScroll topInset={false}>
+      <ScreenScroll topInset={false} onRefresh={() => void morph.refresh()} refreshing={morph.sync === "syncing"}>
         <ScreenRenderer screen={screen} params={params} />
       </ScreenScroll>
     </ThemeProvider>

@@ -179,6 +179,18 @@ PGlite em desenvolvimento e testes ([docs](https://pglite.dev/docs/api)).
   expo-linear-gradient, expo-sqlite, @react-native-community/datetimepicker
   ([docs Expo 57](https://docs.expo.dev/versions/latest/)).
 
+## 4.2.1 Motion Engine (passo 4)
+
+- `morph-engine/src/diff.ts`: compara duas versões da spec e diz, por tela, o que surgiu,
+  sumiu, mudou ou se moveu (ids estáveis do protocolo). Irmãos que só "deram espaço" não
+  contam como movidos.
+- `apps/mobile/src/motion/Motion.tsx`: cada componente fica num `Animated.View` (Reanimated 4,
+  [docs](https://docs.swmansion.com/react-native-reanimated/docs/layout-animations/entering-exiting-animations/)):
+  entrada com mola, saída esmaecendo, reposicionamento deslizando, brilho breve na cor da
+  ferramenta no que surgiu/mudou. Ao abrir uma tela nada anima (`LayoutAnimationConfig
+  skipEntering`). Destaque vale por 10 s após a mudança chegar.
+- Puxar para atualizar em todas as telas. Validado no iPhone: RPE surgindo na sessão aberta.
+
 ## 4.3 Deploy na Heroku
 
 - `Procfile` roda o servidor direto em TypeScript (Node 22, `engines`).
@@ -215,8 +227,8 @@ funcional, persistente e visualmente coerente enquanto o usuário a usa.*
 | 0 | ✅ Apagar o Pulse, esqueleto do Morph, CI e docs | typecheck + testes verdes |
 | 1 | ✅ `morph-protocol` + `morph-engine` com testes (treinos, RPE, remover RPE, componente/Skill inventados, referência inválida, operação destrutiva, rollback) | testes passam sem rede |
 | 2 | ✅ `apps/server`: Postgres, migrations, versões da Spec, registros, Evolution, acesso por token | aplica e desfaz changeset pela API |
-| 3 | 🔶 Mobile: Design System + renderer + uso real (salvar dados). Novo dev client (Reanimated) | Spec salva vira tela usável no iPhone |
-| 4 | Motion Engine (RPE surge dentro da tela) | transformação animada |
+| 3 | ✅ Mobile: Design System + renderer + uso real (salvar dados). Novo dev client (Reanimated) | Spec salva vira tela usável no iPhone |
+| 4 | ✅ Motion Engine (RPE surge dentro da tela) | transformação animada |
 | 5 | Evolution + desfazer | linha do tempo real |
 | 6 | Escolha da IA + `packages/ai` + router + tela "O que vamos criar hoje?" com etapas reais | fluxo completo de 12 passos |
 

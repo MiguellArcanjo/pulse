@@ -4,6 +4,7 @@ import { Alert, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Tool } from "@morph/protocol";
 import { useReady } from "../data/MorphProvider";
+import { HomeMotion, MotionNode } from "../motion/Motion";
 import { openScreen } from "../renderer/navigation";
 import { Icon, UiIcon } from "../design/icons";
 import { ScreenScroll, Surface, Tap, Txt } from "../design/primitives";
@@ -25,7 +26,7 @@ export function Home() {
   if (tools.length === 0) return <EmptyHome />;
   return (
     <View style={{ flex: 1 }}>
-      <ScreenScroll bottomInset={96}>
+      <ScreenScroll bottomInset={96} onRefresh={() => void morph.refresh()} refreshing={morph.sync === "syncing"}>
         <TopBar />
         <OfflineNote />
         <WithTools tools={tools} />
@@ -120,11 +121,17 @@ function WithTools({ tools }: { tools: Tool[] }) {
         </Txt>
         <Txt tone="secondary">Suas ferramentas</Txt>
       </View>
-      <View style={styles.grid}>
-        {tools.map((t) => (
-          <ToolCard key={t.id} tool={t} />
-        ))}
-      </View>
+      <HomeMotion>
+        <View style={styles.grid}>
+          {tools.map((t) => (
+            <View key={t.id} style={styles.cell}>
+              <MotionNode id={`tool:${t.id}`}>
+                <ToolCard tool={t} />
+              </MotionNode>
+            </View>
+          ))}
+        </View>
+      </HomeMotion>
       <Surface style={styles.soon}>
         <UiIcon name="timeline-clock-outline" size={20} color="#888" />
         <View style={{ flex: 1 }}>
@@ -144,7 +151,7 @@ function ToolCard({ tool }: { tool: Tool }) {
   const accent = accents[tool.accent];
   const { colors } = useTheme();
   return (
-    <Tap onPress={() => openScreen(tool.home)} style={styles.cell}>
+    <Tap onPress={() => openScreen(tool.home)}>
       <View style={[styles.toolCard, { borderColor: colors.border }]}>
         <LinearGradient colors={[accent.dark, accent.soft]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
         <View style={[styles.toolIcon, { backgroundColor: "rgba(255,255,255,0.14)" }]}>

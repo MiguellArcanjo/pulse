@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
 import { ApiError, MorphApi, pull, upsertLocal, type RecordRow, type Snapshot } from "@morph/client";
-import { RecordIndex, type RecordData } from "@morph/engine";
+import { diffSpecs, RecordIndex, type RecordData, type SpecDiff } from "@morph/engine";
 import { clearSession, loadSession, loadSnapshot, saveSession, saveSnapshot } from "./storage";
 
 /**
@@ -22,7 +22,11 @@ type MorphState =
       serverUrl: string;
     };
 
+/** Última mudança de estrutura recebida (base das animações do Motion). */
+export type LastChange = { diff: SpecDiff; version: number; at: number };
+
 type MorphActions = {
+  lastChange: LastChange | null;
   pair(serverUrl: string, code: string): Promise<void>;
   unpair(): Promise<void>;
   refresh(): Promise<void>;
@@ -35,6 +39,7 @@ const Ctx = createContext<(MorphState & MorphActions) | null>(null);
 
 export function MorphProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<MorphState>({ status: "loading" });
+  const [lastChange, setLastChange] = useState<LastChange | null>(null);
   const api = useRef<MorphApi | null>(null);
   const snapshotRef = useRef<Snapshot | null>(null);
 
@@ -52,7 +57,10 @@ export function MorphProvider({ children }: { children: ReactNode }) {
     if (!api.current) return;
     setState((s) => (s.status === "ready" ? { ...s, sync: "syncing" } : s));
     try {
-      const next = await pull(api.current, snapshotRef.current);
+      const prev = snapshotRef.current;
+      const next = await pull(api.current, prev);
+      if (prev && next.version !== prev.version)
+        setLastChange({ diff: diffSpecs(prev.spec, next.spec), version: next.version, at: Date.now() });
       setSnapshot(next, "idle");
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -125,6 +133,7 @@ export function MorphProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       ...state,
+      lastChange,
       pair,
       unpair,
       refresh,
@@ -137,7 +146,7 @@ export function MorphProvider({ children }: { children: ReactNode }) {
         if (snap) setSnapshot({ ...snap, records: snap.records.filter((r) => r.id !== id) }, "idle");
       },
     }),
-    [state, pair, unpair, refresh, write, setSnapshot],
+    [state, lastChange, pair, unpair, refresh, write, setSnapshot],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

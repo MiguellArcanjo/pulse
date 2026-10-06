@@ -26,3 +26,4 @@ export {
   type StoredRecord,
 } from "./query.ts";
 export { formatDate, formatDuration, formatNumber, formatRelativeDate, formatResolved } from "./format.ts";
+export { diffScreen, diffSpecs, type ScreenDiff, type SpecDiff } from "./diff.ts";

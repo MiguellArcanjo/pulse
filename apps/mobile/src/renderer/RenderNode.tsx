@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Node, Screen } from "@morph/protocol";
 import { useReady } from "../data/MorphProvider";
+import { MotionNode, ScreenMotion } from "../motion/Motion";
 import { ChartNode, ListNode, RepeatNode } from "./components/data";
 import {
   BadgeNode,
@@ -23,6 +24,14 @@ import { ScopeProvider } from "./scope";
  * engine no servidor; aqui não existe "componente desconhecido".
  */
 export function renderNode(node: Node): ReactNode {
+  return (
+    <MotionNode key={node.id} id={node.id}>
+      {renderComponent(node)}
+    </MotionNode>
+  );
+}
+
+function renderComponent(node: Node): ReactNode {
   const k = node.id;
   switch (node.type) {
     case "stack":
@@ -71,7 +80,7 @@ export function ScreenRenderer({ screen, params }: { screen: Screen; params: Rec
   return (
     <RenderProvider value={renderNode}>
       <ScreenScope screen={screen} params={params}>
-        {screen.root.map(renderNode)}
+        <ScreenMotion screenId={screen.id}>{screen.root.map(renderNode)}</ScreenMotion>
       </ScreenScope>
     </RenderProvider>
   );

@@ -91,9 +91,13 @@ Antes de entregar: `pnpm typecheck` e `pnpm test` verdes.
 
 ## 6. Estado atual (2026-10-06)
 
-- Passos 0–2 concluídos; passo 3 com código pronto (76 testes, `expo export` e `expo-doctor` ok),
-  faltando: commit/push (o dono autoriza), deploy na Heroku pelo dono, build do dev client no
-  GitHub, sideload e validação no iPhone. Nada commitado ainda.
+- Passos 0–3 concluídos e validados no iPhone (2026-10-06): servidor na Heroku
+  (https://morph-miguel-98e2fde49277.herokuapp.com, app dev client
+  instalado. Último commit `e8ce891`.
+- Passo 4 (Motion) validado no iPhone; app spec na versão 3 (RPE). Não commitado.
+- Próximo: passo 5 (Evolution: linha do tempo + desfazer).
+- Deploy na Heroku: o dono clica em Deploy → Deploy Branch (main) no site; o script de dev
+  (`pnpm morph`, token em apps/server/.data) já está pareado com a Heroku.
 - O iPhone fala com o servidor da Heroku (não com o PC). O servidor local serve para testes
   e para o `pnpm morph`.
 - Mudou o protocolo? Atualize `docs/ARCHITECTURE.md` §2 e os testes.

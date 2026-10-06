@@ -1,7 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import type { ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "./theme";
 import { GUTTER, radius, space, type as typeScale } from "./tokens";
@@ -114,9 +114,14 @@ export function ScreenScroll({
   children,
   bottomInset = 0,
   topInset = true,
+  onRefresh,
+  refreshing = false,
 }: {
   children: ReactNode;
   bottomInset?: number;
+  /** Puxar para atualizar (sincroniza com o servidor). */
+  onRefresh?: () => void;
+  refreshing?: boolean;
   /** false quando já existe uma barra no topo cuidando da área segura. */
   topInset?: boolean;
 }) {
@@ -127,6 +132,7 @@ export function ScreenScroll({
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ paddingTop: (topInset ? insets.top : 0) + space.lg, paddingBottom: insets.bottom + space.xxl + bottomInset, paddingHorizontal: GUTTER, gap: space.xl }}
       keyboardShouldPersistTaps="handled"
+      refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textSecondary} /> : undefined}
     >
       {children}
     </ScrollView>

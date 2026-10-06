@@ -21,6 +21,19 @@ export type EvolutionEvent = {
   createdAt: string;
 };
 
+/** Pedido à IA acompanhado pelo app (ver apps/server/src/ai/orchestrator.ts). */
+export type AiJob = {
+  id: string;
+  status: "running" | "done" | "needs_confirmation" | "declined" | "not_supported" | "failed";
+  stage: "understanding" | "choosing" | "data" | "interface" | "finishing";
+  intent: string | null;
+  progressTitle: string | null;
+  reply: string | null;
+  error: string | null;
+  proposal: { summary: string; level: PermissionLevel } | null;
+  result: { version: number; summary: string; target: string | null; home: string | null } | null;
+};
+
 export type ChangeResponse = { version: number; spec: AppSpec; level: PermissionLevel; event: EvolutionEvent };
 
 /** Erro da API com o status HTTP e o corpo (ex.: `issues` de validação). */
@@ -122,6 +135,26 @@ export class MorphApi {
       "GET",
       "/v1/evolution",
     );
+  }
+
+  aiRequest(text: string) {
+    return this.call<AiJob>("POST", "/v1/ai/requests", { text });
+  }
+
+  aiJob(id: string) {
+    return this.call<AiJob>("GET", `/v1/ai/jobs/${id}`);
+  }
+
+  aiConfirm(id: string) {
+    return this.call<AiJob>("POST", `/v1/ai/jobs/${id}/confirm`, { confirm: true });
+  }
+
+  aiDecline(id: string) {
+    return this.call<AiJob>("POST", `/v1/ai/jobs/${id}/decline`, {});
+  }
+
+  aiUsage() {
+    return this.call<{ enabled: boolean; calls: number; costUsd: number; callsWithoutPrice: number }>("GET", "/v1/ai/usage");
   }
 
   restore(version: number) {

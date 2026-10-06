@@ -1,6 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { Alert, StyleSheet, useWindowDimensions, View } from "react-native";
+import { useState } from "react";
+import { Alert, KeyboardAvoidingView, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Tool } from "@morph/protocol";
 import { useReady } from "../data/MorphProvider";
@@ -25,7 +26,7 @@ export function Home() {
 
   if (tools.length === 0) return <EmptyHome />;
   return (
-    <View style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScreenScroll bottomInset={96} onRefresh={() => void morph.refresh()} refreshing={morph.sync === "syncing"}>
         <TopBar />
         <OfflineNote />
@@ -34,7 +35,7 @@ export function Home() {
       <View style={[styles.bottomComposer, { paddingBottom: insets.bottom + space.sm }]}>
         <Composer placeholder="Pergunte ou crie algo…" />
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -48,9 +49,11 @@ function OfflineNote() {
   );
 }
 
-/** A criação por IA ainda não existe: tocar explica quando chega. */
-function soon() {
-  Alert.alert("Em breve", "Criar e mudar ferramentas conversando com a IA chega no passo 6 do plano.");
+/** Abre a construção em tempo real com o pedido. */
+function create(text: string) {
+  const t = text.trim();
+  if (t.length < 2) return;
+  router.push(`/create?text=${encodeURIComponent(t)}`);
 }
 
 function TopBar() {
@@ -76,34 +79,38 @@ function TopBar() {
 
 const EXAMPLES = ["Quero controlar meus treinos", "Acompanhar meus projetos", "Organizar minha próxima viagem"];
 
-/** Mockup 1: app vazio. Proporções medidas no mockup (título a ~33% da altura, caixa a ~64%). */
+/**
+ * Mockup 1: app vazio. Título por volta de 1/3 da altura e caixa de pedido logo abaixo;
+ * em colunas flexíveis para que tudo suba junto quando o teclado abre.
+ */
 function EmptyHome() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top + space.lg, paddingHorizontal: GUTTER }}>
-      <TopBar />
-      <OfflineNote />
-      <View style={{ position: "absolute", top: height * 0.31, left: GUTTER, right: GUTTER }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flex: 1, paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.xl, paddingHorizontal: GUTTER }}>
+        <TopBar />
+        <OfflineNote />
+        <View style={{ flex: 0.9 }} />
         <Txt style={styles.bigTitle}>O que vamos{"\n"}criar hoje?</Txt>
-      </View>
-      <View style={{ position: "absolute", top: height * 0.62, left: GUTTER, right: GUTTER, gap: space.xl }}>
-        <Composer placeholder="Fale ou digite algo…" />
-        <View style={{ gap: space.sm }}>
-          <Txt variant="footnote" tone="secondary">
-            Exemplos
-          </Txt>
-          {EXAMPLES.map((e) => (
-            <Tap key={e} onPress={soon} haptic={false} style={[styles.example, { backgroundColor: colors.surfaceStrong }]}>
-              <Txt variant="footnote" style={{ color: colors.text, opacity: 0.82 }}>
-                {e}
-              </Txt>
-            </Tap>
-          ))}
+        <View style={{ flex: 1 }} />
+        <View style={{ gap: space.xl }}>
+          <Composer placeholder="Fale ou digite algo…" />
+          <View style={{ gap: space.sm }}>
+            <Txt variant="footnote" tone="secondary">
+              Exemplos
+            </Txt>
+            {EXAMPLES.map((e) => (
+              <Tap key={e} onPress={() => create(e)} haptic={false} style={[styles.example, { backgroundColor: colors.surfaceStrong }]}>
+                <Txt variant="footnote" style={{ color: colors.text, opacity: 0.82 }}>
+                  {e}
+                </Txt>
+              </Tap>
+            ))}
+          </View>
         </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -173,19 +180,39 @@ function ToolCard({ tool }: { tool: Tool }) {
   );
 }
 
-/** Caixa de pedido (mockups 1 e 4). Até a IA existir (passo 6), tocar só explica. */
+/** Caixa de pedido (mockups 1 e 4): o que o usuário escreve vira um pedido à IA. */
 function Composer({ placeholder }: { placeholder: string }) {
   const { colors, scheme } = useTheme();
+  const [text, setText] = useState("");
+  const send = () => {
+    create(text);
+    setText("");
+  };
+  const canSend = text.trim().length >= 2;
   return (
-    <Tap onPress={soon} haptic={false} style={[styles.composer, { backgroundColor: colors.surfaceStrong, borderColor: colors.border }]}>
+    <View style={[styles.composer, { backgroundColor: colors.surfaceStrong, borderColor: colors.border }]}>
       <View style={[styles.plus, { backgroundColor: scheme === "dark" ? "rgba(255,255,255,0.88)" : "#0B0B0F" }]}>
         <UiIcon name="plus" size={18} color={scheme === "dark" ? "#0B0B0F" : "#FFFFFF"} />
       </View>
-      <Txt variant="callout" tone="secondary" style={{ flex: 1, fontWeight: "400" }}>
-        {placeholder}
-      </Txt>
-      <UiIcon name="microphone-outline" size={20} color={colors.text} />
-    </Tap>
+      <TextInput
+        value={text}
+        onChangeText={setText}
+        onSubmitEditing={send}
+        returnKeyType="send"
+        placeholder={placeholder}
+        placeholderTextColor={colors.textSecondary}
+        style={{ flex: 1, fontSize: 15, color: colors.text }}
+      />
+      {canSend ? (
+        <Tap onPress={send} accessibilityLabel="Enviar">
+          <UiIcon name="arrow-up-circle" size={30} color={colors.text} />
+        </Tap>
+      ) : (
+        <Tap onPress={() => Alert.alert("Em breve", "Falar em vez de digitar ainda não existe. Por enquanto, escreva o pedido.")} accessibilityLabel="Falar">
+          <UiIcon name="microphone-outline" size={20} color={colors.textSecondary} />
+        </Tap>
+      )}
+    </View>
   );
 }
 

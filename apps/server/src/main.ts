@@ -1,4 +1,6 @@
 import { mkdir } from "node:fs/promises";
+import { loadAIConfig, OpenAIProvider } from "@morph/ai";
+import { AiOrchestrator } from "./ai/orchestrator.ts";
 import { buildApp } from "./app.ts";
 import { createPairingCode } from "./auth.ts";
 import { loadConfig } from "./config.ts";
@@ -18,7 +20,13 @@ if (config.database.kind === "pg") {
 }
 
 const applied = await migrate(db);
-const app = buildApp({ db, logger: true });
+
+// IA: opcional. Sem AI_PROVIDER o app funciona normalmente, só sem criação por IA.
+const aiConfig = loadAIConfig(process.env);
+const ai = aiConfig ? new AiOrchestrator(db, new OpenAIProvider(aiConfig.apiKey), aiConfig) : null;
+
+const app = buildApp({ db, logger: true, ai });
+app.log.info(aiConfig ? `IA ligada: ${aiConfig.provider} (fast=${aiConfig.models.fast}, main=${aiConfig.models.main}, reasoning=${aiConfig.models.reasoning})` : "IA desligada (sem AI_PROVIDER)");
 if (applied.length > 0) app.log.info({ migrations: applied }, "migrations aplicadas");
 
 // Primeiro uso: nenhum aparelho pareado ainda → mostra um código no log.

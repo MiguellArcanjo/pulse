@@ -58,7 +58,8 @@ apps/mobile/src
   home/Home.tsx           início (vazio = "O que vamos criar hoje?")
 docs/                     ARCHITECTURE.md (decisões e plano), IOS-SIDELOAD.md
 ```
-Ainda não existe: `packages/ai` (passo 6).
+packages/ai               AIProvider, router, contexto, prompts versionados, schema estrito (só servidor)
+apps/server/src/ai/       orquestrador (jobs) da IA
 
 Separe domínio, IA, renderer e UI. Evite arquivos gigantes. TypeScript estrito
 (`tsconfig.base.json`, com `noUncheckedIndexedAccess` e `exactOptionalPropertyTypes`).
@@ -95,8 +96,8 @@ Antes de entregar: `pnpm typecheck` e `pnpm test` verdes.
   (https://morph-miguel-98e2fde49277.herokuapp.com, app dev client
   instalado. Último commit `e8ce891`.
 - Passos 4 (Motion) e 5 (Evolution + desfazer) validados no iPhone.
-- Próximo: passo 6 (IA). Antes de codar: comparar OpenAI, Claude e Gemini na documentação
-  oficial e o dono escolhe.
+- Passo 6 (IA, OpenAI) com código pronto e 106 testes; falta validar com a API de verdade
+  (`pnpm morph ai "pedido"` e `pnpm morph ai-calls` contra a Heroku) e no iPhone.
 - Deploy na Heroku: o dono clica em Deploy → Deploy Branch (main) no site; o script de dev
   (`pnpm morph`, token em apps/server/.data) já está pareado com a Heroku.
 - O iPhone fala com o servidor da Heroku (não com o PC). O servidor local serve para testes

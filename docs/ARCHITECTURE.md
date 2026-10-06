@@ -46,7 +46,7 @@ iPhone (Expo)                               Servidor (Node + TS, Heroku)
 |---|---|---|
 | `packages/morph-protocol` | Schemas Zod: AppSpec, Entity, Screen, Node, Action, Operation, Changeset | v1 |
 | `packages/morph-engine` | Funções puras: aplicar operações, validação semântica, rollback, registros | v1 (diff no passo 4) |
-| `packages/ai` | AIProvider, Model Router, prompts versionados | passo 6 |
+| `packages/ai` | AIProvider (OpenAI), Model Router, Context Builder, prompts versionados, schema estrito, custo | v1 |
 | `packages/client` | Cliente da API + sincronização (sem React Native) | v1 |
 | `apps/server` | Node + TS (Fastify 5): API, versões, registros, Evolution, pareamento | v1 (IA no passo 6) |
 | `apps/mobile` | Renderer, Design System, telas fixas (pareamento, início); Motion no passo 4 | v1 |
@@ -210,6 +210,30 @@ PGlite em desenvolvimento e testes ([docs](https://pglite.dev/docs/api)).
 - Pareamento: o primeiro código aparece no log; depois, um aparelho pareado gera códigos
   (`POST /v1/auth/pairing-codes`, `pnpm morph code`).
 
+## 4.4 IA no servidor (passo 6)
+
+- `packages/ai`: `AIProvider` (só `generateStructured` por enquanto; ferramentas e visão quando
+  houver uso), `OpenAIProvider` (Responses API + streaming), `toStrictSchema`/`fromStrict`
+  (protocolo Zod → subconjunto estrito: tudo obrigatório com null, `anyOf`, records viram pares,
+  sem regex/limites; volta guiada pelo schema original), `buildContext` (só a estrutura da
+  ferramenta envolvida; **nunca registros do usuário**), `chooseTier` (FAST para entender e
+  mudanças pequenas, MAIN para criar, REASONING para complexas/arquivar; nova tentativa sobe um
+  nível), prompts `classifier:v1` e `builder:v1` (parte fixa primeiro, para cache).
+- `apps/server/src/ai/orchestrator.ts`: UNDERSTAND (classificador) → PLAN (construtor) →
+  VALIDATE (engine; se falhar, uma nova tentativa com os problemas) → PREVIEW (CONFIRM espera o
+  usuário) → EXECUTE (`commitChangeset`, source "ai") → RECORD (Evolution). Pedido vira job em
+  memória acompanhado pelo app (etapas reais: entender, escolher, dados, interface, finalizar).
+  Limite de 30 pedidos/hora por usuário.
+- `ai_calls` (migration 0002): provider, modelo, papel, versão do prompt, tentativa, latência,
+  tokens (entrada, cache, saída, raciocínio), custo estimado (`AI_PRICES`), sucesso, etapa de
+  validação, erro curto, categorias de contexto enviadas. Nunca chaves ou conteúdo.
+- Rotas: `POST /v1/ai/requests`, `GET /v1/ai/jobs/:id`, `POST …/confirm`, `POST …/decline`,
+  `GET /v1/ai/usage` (custo do mês), `GET /v1/ai/calls`. Sem `AI_PROVIDER`: 503 e o app segue.
+- App: caixa de pedido e exemplos ativos; tela `create` (mockup 2) com etapas reais; proposta
+  CONFIRM com "Aplicar / Agora não"; ao terminar sincroniza e abre a ferramenta (Motion destaca).
+- Config vars na Heroku: `AI_PROVIDER`, `OPENAI_API_KEY`, `AI_MODEL_FAST/MAIN/REASONING`,
+  `AI_PRICES` (US$ por 1M tokens, da [página de preços](https://developers.openai.com/api/docs/pricing)).
+
 ## 5. Infraestrutura
 
 - **Servidor**: Node + TS num dyno **Basic** da Heroku (US$ 7/mês, sempre ligado) +
@@ -240,7 +264,7 @@ funcional, persistente e visualmente coerente enquanto o usuário a usa.*
 | 3 | ✅ Mobile: Design System + renderer + uso real (salvar dados). Novo dev client (Reanimated) | Spec salva vira tela usável no iPhone |
 | 4 | ✅ Motion Engine (RPE surge dentro da tela) | transformação animada |
 | 5 | ✅ Evolution + desfazer | linha do tempo real |
-| 6 | Escolha da IA + `packages/ai` + router + tela "O que vamos criar hoje?" com etapas reais | fluxo completo de 12 passos |
+| 6 | 🔶 Escolha da IA + `packages/ai` + router + tela "O que vamos criar hoje?" com etapas reais | fluxo completo de 12 passos |
 
 Do 3 ao 5, changesets são aplicados por **script de desenvolvimento** (fora do app). Nada de
 tela falsa no produto: a tela de criação só aparece no passo 6, funcionando com IA de verdade.
@@ -255,7 +279,7 @@ Context Engine, notificações · 4 Skills e integrações · 5 UI adaptativa av
 | M1 | Destino do Pulse | Apagado por completo, inclusive o que não estava commitado (2026-10-06) |
 | M2 | Onde roda o servidor | Heroku (créditos de estudante), Node + TS + Postgres (2026-10-06) |
 | M3 | Nome / bundle | Morph · `dev.morph.mobile` (2026-10-06) |
-| M4 | Fornecedor de IA | Escolhido no passo 6, após comparar documentação oficial (2026-10-06) |
+| M4 | Fornecedor de IA | **OpenAI** (Responses API, saída estruturada estrita): FAST `gpt-6-luna`, MAIN `gpt-6.1-sol`, REASONING `gpt-6-astra`, via config vars. Comparado com Claude (não aceita schema recursivo) e Gemini (Pro em preview; preço dobra em 2027). NVIDIA free endpoint só para testes (2026-10-06) |
 | M5 | Postgres no desenvolvimento | PGlite (Postgres dentro do Node) em dev e testes; `pg` na Heroku (2026-10-06) |
 | M6 | Acesso iPhone ↔ servidor | Código de pareamento de uso único (15 min) → token por aparelho; só hashes no banco (2026-10-06) |
 | M7 | Tema | Segue o sistema (claro/escuro) |

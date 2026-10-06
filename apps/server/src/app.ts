@@ -3,6 +3,7 @@ import * as z from "zod";
 import { authenticate, createPairingCode, pairDevice, PairingThrottle, type Session } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { createRecord, deleteRecord, listChanges, updateRecord } from "./records.ts";
+import { publicJob, type AiOrchestrator } from "./ai/orchestrator.ts";
 import { commitChangeset, restoreTo, type ChangeResult } from "./changes.ts";
 import { latestSpec, listEvolution, listVersions } from "./store.ts";
 
@@ -17,13 +18,14 @@ declare module "fastify" {
   }
 }
 
-export type AppOptions = { db: Db; logger?: boolean };
+export type AppOptions = { db: Db; logger?: boolean; ai?: AiOrchestrator | null };
 
 const PairBody = z.object({ code: z.string().min(4).max(40), deviceName: z.string().trim().min(1).max(60) }).strict();
 const ChangesetBody = z.object({ changeset: z.unknown(), confirm: z.boolean().optional() }).strict();
 const RecordCreateBody = z.object({ entity: z.string().min(1).max(48), data: z.unknown() }).strict();
 const RecordUpdateBody = z.object({ data: z.unknown() }).strict();
 const ConfirmBody = z.object({ confirm: z.literal(true) }).strict();
+const AiRequestBody = z.object({ text: z.string().trim().min(2).max(500) }).strict();
 const ChangesQuery = z.object({
   cursor: z.string().regex(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z\|[0-9a-f-]{36}$/).optional(),
   limit: z.coerce.number().int().min(1).max(500).default(200),
@@ -47,7 +49,7 @@ function badRequest(reply: FastifyReply, error: z.ZodError) {
   return reply.code(400).send({ error: "bad_request", issues: error.issues.map((i) => ({ path: i.path.map(String), message: i.message })) });
 }
 
-export function buildApp({ db, logger = false }: AppOptions): FastifyInstance {
+export function buildApp({ db, logger = false, ai = null }: AppOptions): FastifyInstance {
   const app = Fastify({
     logger: logger ? { redact: ["req.headers.authorization"] } : false,
     // Na Heroku o tráfego chega pelo roteador dela (proxy).
@@ -124,6 +126,69 @@ export function buildApp({ db, logger = false }: AppOptions): FastifyInstance {
           integrations: spec.skills.length,
         },
       };
+    });
+
+    // ---------------- IA (passo 6) ----------------
+    // Sem configuração de IA, estas rotas respondem 503 e o resto do app segue normal.
+
+    api.post("/v1/ai/requests", async (req, reply) => {
+      if (!ai) return reply.code(503).send({ error: "ai_unavailable" });
+      const body = AiRequestBody.safeParse(req.body);
+      if (!body.success) return badRequest(reply, body.error);
+      const r = ai.start(req.session.userId, body.data.text);
+      if (!r.ok) return reply.code(r.reason === "busy" ? 409 : 429).send({ error: r.reason });
+      return reply.code(202).send(publicJob(r.job));
+    });
+
+    api.get("/v1/ai/jobs/:id", async (req, reply) => {
+      const params = IdParam.safeParse(req.params);
+      if (!params.success) return badRequest(reply, params.error);
+      const job = ai?.get(req.session.userId, params.data.id);
+      if (!job) return reply.code(404).send({ error: "not_found" });
+      return publicJob(job);
+    });
+
+    /** Proposta de nível CONFIRM: o usuário aplica ou recusa. */
+    api.post("/v1/ai/jobs/:id/confirm", async (req, reply) => {
+      const params = IdParam.safeParse(req.params);
+      if (!params.success) return badRequest(reply, params.error);
+      if (!ConfirmBody.safeParse(req.body).success) return reply.code(409).send({ error: "confirmation_required" });
+      const job = ai?.get(req.session.userId, params.data.id);
+      if (!job || !ai) return reply.code(404).send({ error: "not_found" });
+      await ai.confirm(job);
+      return publicJob(job);
+    });
+
+    api.post("/v1/ai/jobs/:id/decline", async (req, reply) => {
+      const params = IdParam.safeParse(req.params);
+      if (!params.success) return badRequest(reply, params.error);
+      const job = ai?.get(req.session.userId, params.data.id);
+      if (!job || !ai) return reply.code(404).send({ error: "not_found" });
+      ai.decline(job);
+      return publicJob(job);
+    });
+
+    /** Últimas chamadas à IA: só metadados técnicos (modelo, tokens, custo, validação, erro). */
+    api.get("/v1/ai/calls", async (req) => {
+      const rows = await db.query(
+        `SELECT created_at, role, prompt_version, model, attempt, latency_ms, input_tokens, cached_tokens,
+                output_tokens, reasoning_tokens, estimated_cost_usd::text AS cost, success, validation, error
+           FROM ai_calls WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20`,
+        [req.session.userId],
+      );
+      return { calls: rows };
+    });
+
+    /** Custo da IA no mês (a partir de ai_calls). */
+    api.get("/v1/ai/usage", async (req) => {
+      const rows = await db.query<{ calls: number; cost: string | null; unknown: number }>(
+        `SELECT count(*)::int AS calls, sum(estimated_cost_usd)::text AS cost,
+                count(*) FILTER (WHERE estimated_cost_usd IS NULL)::int AS unknown
+           FROM ai_calls WHERE user_id = $1 AND created_at >= date_trunc('month', now())`,
+        [req.session.userId],
+      );
+      const r = rows[0];
+      return { enabled: ai !== null, calls: r?.calls ?? 0, costUsd: r?.cost ? Number(r.cost) : 0, callsWithoutPrice: r?.unknown ?? 0 };
     });
 
     // ---------------- registros ----------------

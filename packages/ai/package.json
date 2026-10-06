@@ -1,0 +1,24 @@
+{
+  "name": "@morph/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Camada de IA do Morph: AIProvider (fornecedor trocável), Model Router, prompts versionados, schema estrito para a IA e custo. Só roda no servidor.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types --no-warnings=ExperimentalWarning \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@morph/engine": "workspace:*",
+    "@morph/protocol": "workspace:*",
+    "openai": "^7.28.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "typescript": "~6.0.3"
+  }
+}

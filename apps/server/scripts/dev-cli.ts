@@ -7,6 +7,8 @@
  *   pnpm morph undo [--confirm]           desfaz a última mudança
  *   pnpm morph versions                   lista as versões
  *   pnpm morph code                       gera um código para parear outro aparelho (ex.: o iPhone)
+ *   pnpm morph ai "pedido" [--confirm]    faz um pedido à IA e acompanha as etapas
+ *   pnpm morph ai-calls                   últimas chamadas à IA (modelo, tokens, custo, erro)
  *
  * Casos prontos: criar-treinos, adicionar-rpe, mostrar-recorde, remover-rpe.
  */
@@ -108,6 +110,39 @@ switch (command) {
     console.log(`Código de pareamento: ${String(r.body["code"])} (vale 15 minutos, uso único)`);
     break;
   }
+  case "ai": {
+    const state = await loadState();
+    const text = positional.join(" ");
+    let r = await api(state, "POST", "/v1/ai/requests", { text });
+    if (r.status !== 202) throw new Error(`pedido recusado (${r.status} ${String(r.body["error"])})`);
+    let last = "";
+    for (;;) {
+      const stage = `${String(r.body["status"])}/${String(r.body["stage"])}`;
+      if (stage !== last) console.log(`… ${stage}${r.body["progressTitle"] ? ` (${String(r.body["progressTitle"])})` : ""}`);
+      last = stage;
+      if (r.body["status"] !== "running") break;
+      await new Promise((res) => setTimeout(res, 700));
+      r = await api(state, "GET", `/v1/ai/jobs/${String(r.body["id"])}`);
+    }
+    if (r.body["status"] === "needs_confirmation") {
+      const p = r.body["proposal"] as { summary: string; level: string };
+      console.log(`⚠️  Proposta (${p.level}): ${p.summary}`);
+      if (confirm) r = await api(state, "POST", `/v1/ai/jobs/${String(r.body["id"])}/confirm`, { confirm: true });
+      else console.log("   Rode de novo com --confirm para aplicar.");
+    }
+    console.log(JSON.stringify({ status: r.body["status"], result: r.body["result"], reply: r.body["reply"], error: r.body["error"] }, null, 2));
+    break;
+  }
+  case "ai-calls": {
+    const r = await api(await loadState(), "GET", "/v1/ai/calls");
+    for (const c of r.body["calls"] as Record<string, unknown>[])
+      console.log(
+        `${String(c["role"]).padEnd(10)} ${String(c["model"]).padEnd(14)} t${String(c["attempt"])} ${String(c["latency_ms"]).padStart(6)}ms ` +
+          `in=${String(c["input_tokens"])} (cache ${String(c["cached_tokens"])}) out=${String(c["output_tokens"])} ` +
+          `US$ ${String(c["cost"] ?? "?")} ${c["success"] ? "ok" : "FALHOU"} ${String(c["validation"] ?? "")} ${String(c["error"] ?? "")}`,
+      );
+    break;
+  }
   default:
-    console.log("comandos: login, apply, undo, versions, code (veja o topo de apps/server/scripts/dev-cli.ts)");
+    console.log("comandos: login, apply, undo, versions, code, ai, ai-calls (veja o topo de apps/server/scripts/dev-cli.ts)");
 }

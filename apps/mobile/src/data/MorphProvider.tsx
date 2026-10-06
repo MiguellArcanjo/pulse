@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
-import { ApiError, MorphApi, pull, upsertLocal, type EvolutionEvent, type RecordRow, type Snapshot } from "@morph/client";
+import { ApiError, MorphApi, pull, upsertLocal, type AiJob, type EvolutionEvent, type RecordRow, type Snapshot } from "@morph/client";
 import { diffSpecs, RecordIndex, type RecordData, type SpecDiff } from "@morph/engine";
 import { clearSession, loadSession, loadSnapshot, saveSession, saveSnapshot } from "./storage";
 
@@ -37,6 +37,13 @@ type MorphActions = {
   evolution(): Promise<{ events: EvolutionEvent[]; counts: { tools: number; automations: number; integrations: number } }>;
   /** Desfazer: volta ao conteúdo da versão indicada (gera uma versão nova) e sincroniza. */
   restore(version: number): Promise<void>;
+  /** IA: acesso direto à API para a tela de criação acompanhar o pedido. */
+  ai: {
+    request(text: string): Promise<AiJob>;
+    job(id: string): Promise<AiJob>;
+    confirm(id: string): Promise<AiJob>;
+    decline(id: string): Promise<AiJob>;
+  };
 };
 
 const Ctx = createContext<(MorphState & MorphActions) | null>(null);
@@ -134,6 +141,11 @@ export function MorphProvider({ children }: { children: ReactNode }) {
     [setSnapshot],
   );
 
+  const need = useCallback(() => {
+    if (!api.current) throw new Error("sem sessão");
+    return api.current;
+  }, []);
+
   const value = useMemo(
     () => ({
       ...state,
@@ -152,6 +164,12 @@ export function MorphProvider({ children }: { children: ReactNode }) {
         await api.current.restore(version);
         await refresh();
       },
+      ai: {
+        request: (text: string) => need().aiRequest(text),
+        job: (id: string) => need().aiJob(id),
+        confirm: (id: string) => need().aiConfirm(id),
+        decline: (id: string) => need().aiDecline(id),
+      },
       deleteRecord: async (id: string) => {
         if (!api.current) throw new Error("sem sessão");
         await api.current.deleteRecord(id);
@@ -159,7 +177,7 @@ export function MorphProvider({ children }: { children: ReactNode }) {
         if (snap) setSnapshot({ ...snap, records: snap.records.filter((r) => r.id !== id) }, "idle");
       },
     }),
-    [state, lastChange, pair, unpair, refresh, write, setSnapshot],
+    [state, lastChange, pair, unpair, refresh, write, setSnapshot, need],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

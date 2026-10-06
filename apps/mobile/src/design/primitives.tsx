@@ -110,13 +110,22 @@ export function RoundButton({ children, onPress, size = 44, label }: { children:
 }
 
 /** Tela padrão: fundo, margens seguras e rolagem. */
-export function ScreenScroll({ children, bottomInset = 0 }: { children: ReactNode; bottomInset?: number }) {
+export function ScreenScroll({
+  children,
+  bottomInset = 0,
+  topInset = true,
+}: {
+  children: ReactNode;
+  bottomInset?: number;
+  /** false quando já existe uma barra no topo cuidando da área segura. */
+  topInset?: boolean;
+}) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.xxl + bottomInset, paddingHorizontal: GUTTER, gap: space.xl }}
+      contentContainerStyle={{ paddingTop: (topInset ? insets.top : 0) + space.lg, paddingBottom: insets.bottom + space.xxl + bottomInset, paddingHorizontal: GUTTER, gap: space.xl }}
       keyboardShouldPersistTaps="handled"
     >
       {children}

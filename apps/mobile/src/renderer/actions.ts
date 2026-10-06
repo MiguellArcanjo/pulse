@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import { Alert } from "react-native";
 import { resolveOperand, type StoredRecord } from "@morph/engine";
 import { describeError, useReady } from "../data/MorphProvider";
+import { openScreen } from "./navigation";
 import { useEvalContext } from "./scope";
 
 /**
@@ -26,7 +27,7 @@ export function useRunAction() {
             const v = resolveOperand(op, ctx);
             if (typeof v === "string") params[key] = v;
           }
-          router.push({ pathname: "/s/[screen]", params: { screen: action.screen, ...params } });
+          openScreen(action.screen, params);
           return;
         }
         case "go_back":

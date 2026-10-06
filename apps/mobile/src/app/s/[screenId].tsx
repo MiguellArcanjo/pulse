@@ -8,9 +8,10 @@ import { ThemeProvider, useTheme } from "../../design/theme";
 import { GUTTER, space } from "../../design/tokens";
 import { ScreenRenderer } from "../../renderer/RenderNode";
 
-/** Qualquer tela da spec: /s/<id da tela>?<parâmetros>. */
+/** Qualquer tela da spec: /s/<id da tela>?<parâmetros> (rota s/[screenId]). */
 export default function SpecScreen() {
-  const { screen: screenId, ...rest } = useLocalSearchParams<Record<string, string>>();
+  // O parâmetro não pode se chamar "screen": é reservado pela navegação (React Navigation).
+  const { screenId, ...rest } = useLocalSearchParams<Record<string, string>>();
   const morph = useMorph();
   if (morph.status !== "ready" || !morph.snapshot) return <Missing />;
   const spec = morph.snapshot.spec;
@@ -26,7 +27,7 @@ export default function SpecScreen() {
   return (
     <ThemeProvider accent={tool.accent}>
       <BackBar title={tool.home === screen.id ? null : screen.title} />
-      <ScreenScroll>
+      <ScreenScroll topInset={false}>
         <ScreenRenderer screen={screen} params={params} />
       </ScreenScroll>
     </ThemeProvider>
@@ -64,7 +65,7 @@ function Missing() {
 }
 
 const styles = StyleSheet.create({
-  bar: { flexDirection: "row", alignItems: "center", paddingHorizontal: GUTTER - 8, paddingBottom: space.xs },
+  bar: { flexDirection: "row", alignItems: "center", paddingHorizontal: GUTTER - 8 },
   back: { width: 44, height: 44, alignItems: "flex-start", justifyContent: "center" },
   missing: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.md },
 });

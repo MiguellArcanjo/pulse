@@ -11,23 +11,29 @@ import { ScopeProvider, useEvalContext, useScope, useValueText } from "../scope"
 
 type N<T extends Node["type"]> = Extract<Node, { type: T }>;
 
-const CHART_HEIGHT = 72;
+const CHART_HEIGHT = 44;
+const STUB = 4;
 
-/** Barras (mockup 3, "Semana"): a barra de hoje na cor da ferramenta. */
+/**
+ * Barras (mockup 3, "Semana"): barras soltas, sem cartão. Dia sem registro vira um
+ * tracinho; o dia atual fica na cor cheia da ferramenta.
+ */
 export function ChartNode({ node }: { node: N<"chart"> }) {
   const ctx = useEvalContext();
   const { accent, colors } = useTheme();
   const buckets = chartBuckets(runQuery(node.query, ctx), node.groupBy, node.measure, ctx);
   const max = Math.max(1, ...buckets.map((b) => b.value));
   return (
-    <Surface style={styles.chart}>
+    <View style={styles.chart}>
       {buckets.map((b) => (
         <View key={b.key} style={styles.barCol}>
-          <View style={[styles.barTrack, { backgroundColor: colors.surfaceStrong }]}>
+          <View style={styles.barArea}>
             <View
               style={[
                 styles.bar,
-                { height: `${(b.value / max) * 100}%`, backgroundColor: b.current ? accent.main : accent.soft },
+                b.value > 0
+                  ? { height: Math.max(STUB * 2, (b.value / max) * CHART_HEIGHT), backgroundColor: accent.main, opacity: b.current ? 1 : 0.55 }
+                  : { height: STUB, backgroundColor: colors.surfaceStrong },
               ]}
             />
           </View>
@@ -36,7 +42,7 @@ export function ChartNode({ node }: { node: N<"chart"> }) {
           </Txt>
         </View>
       ))}
-    </Surface>
+    </View>
   );
 }
 
@@ -112,10 +118,10 @@ function EmptyLine({ text }: { text: string }) {
 }
 
 const styles = StyleSheet.create({
-  chart: { flexDirection: "row", justifyContent: "space-between", paddingVertical: space.lg },
+  chart: { flexDirection: "row", justifyContent: "space-between" },
   barCol: { alignItems: "center", gap: space.sm, flex: 1 },
-  barTrack: { width: 10, height: CHART_HEIGHT, borderRadius: radius.pill, justifyContent: "flex-end", overflow: "hidden" },
-  bar: { width: "100%", borderRadius: radius.pill, minHeight: 0 },
+  barArea: { height: CHART_HEIGHT, justifyContent: "flex-end" },
+  bar: { width: 8, borderRadius: radius.pill },
   listRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md },
   listIcon: { width: 38, height: 38, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
 });

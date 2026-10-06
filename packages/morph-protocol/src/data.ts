@@ -60,7 +60,15 @@ export type Value =
   | { kind: "text"; text: string }
   | { kind: "field"; path: [Id] | [Id, Id]; format?: ValueFormat | undefined }
   | { kind: "param"; param: Id }
-  | { kind: "aggregate"; fn: AggregateFn; query: Query; field?: Id | undefined; format?: ValueFormat | undefined }
+  /** `noun` dá nome ao número com singular e plural: 1 série, 3 séries. */
+  | {
+      kind: "aggregate";
+      fn: AggregateFn;
+      query: Query;
+      field?: Id | undefined;
+      format?: ValueFormat | undefined;
+      noun?: { one: string; other: string } | undefined;
+    }
   /** Variação percentual do agregado entre o período atual e o anterior. */
   | { kind: "trend"; fn: AggregateFn; query: Query; field?: Id | undefined; dateField: Id; period: "week" | "month" }
   | { kind: "join"; parts: Value[]; separator?: string | undefined };
@@ -83,6 +91,7 @@ export const Value: z.ZodType<Value> = z.lazy(() =>
         query: Query,
         field: Id.optional(),
         format: ValueFormat.optional(),
+        noun: z.object({ one: z.string().min(1).max(30), other: z.string().min(1).max(30) }).strict().optional(),
       })
       .strict(),
     z

@@ -229,7 +229,13 @@ export function aggregate(fn: AggregateFn, rows: readonly StoredRecord[], field:
 export type Resolved =
   | { kind: "empty" }
   | { kind: "text"; text: string }
-  | { kind: "number"; value: number; unit?: string | undefined; format?: ValueFormat | undefined }
+  | {
+      kind: "number";
+      value: number;
+      unit?: string | undefined;
+      format?: ValueFormat | undefined;
+      noun?: { one: string; other: string } | undefined;
+    }
   | { kind: "percent"; value: number }
   | { kind: "date"; value: string; format?: ValueFormat | undefined }
   | { kind: "boolean"; value: boolean }
@@ -293,7 +299,7 @@ export function resolveValue(v: Value, ctx: EvalContext): Resolved {
       const def = v.field ? fieldDef(ctx.spec, v.query.entity, v.field) : undefined;
       if (def && (def.type === "date" || def.type === "datetime"))
         return { kind: "date", value: new Date(value).toISOString(), format: v.format };
-      return { kind: "number", value, unit: def && "unit" in def ? def.unit : undefined, format: v.format };
+      return { kind: "number", value, unit: def && "unit" in def ? def.unit : undefined, format: v.format, noun: v.noun };
     }
     case "trend": {
       const base = { ...v.query, where: v.query.where ?? [] };

@@ -75,6 +75,7 @@ export function formatResolved(r: Resolved, now: Date): string {
     case "date":
       return r.format === "relative_date" ? formatRelativeDate(r.value, now) : formatDate(r.value, now);
     case "number": {
+      if (r.noun) return `${formatNumber(r.value)} ${r.value === 1 ? r.noun.one : r.noun.other}`;
       if (r.format === "duration") return formatDuration(r.value);
       if (r.format === "percent") return `${formatNumber(r.value * 100, 0)}%`;
       if (r.format === "compact") return compact(r.value, r.unit);

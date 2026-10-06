@@ -238,6 +238,29 @@ test("navegar sem o parâmetro obrigatório da tela é rejeitado", () => {
   assert.match(r.issues[0]?.message ?? "", /falta o parâmetro "treino"/);
 });
 
+test("parâmetro de tela com nome reservado pela navegação é rejeitado", () => {
+  const r = fail(
+    applyChangeset(comTreinos(), {
+      intent: "modify_tool",
+      target: "treinos",
+      summary: "Tela com parâmetro reservado",
+      operations: [
+        {
+          type: "CREATE_SCREEN",
+          screen: {
+            id: "detalhe",
+            toolId: "treinos",
+            title: "Detalhe",
+            params: [{ id: "screen", entity: "treino" }],
+            root: [{ id: "d", type: "divider" }],
+          },
+        },
+      ],
+    }),
+  );
+  assert.equal(r.issues[0]?.code, "reserved_id");
+});
+
 test("id de componente repetido na mesma tela é rejeitado", () => {
   const r = fail(
     applyChangeset(comTreinos(), {

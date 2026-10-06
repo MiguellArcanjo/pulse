@@ -1,9 +1,10 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { Alert, StyleSheet, TextInput, View } from "react-native";
+import { Alert, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Tool } from "@morph/protocol";
 import { useReady } from "../data/MorphProvider";
+import { openScreen } from "../renderer/navigation";
 import { Icon, UiIcon } from "../design/icons";
 import { ScreenScroll, Surface, Tap, Txt } from "../design/primitives";
 import { useTheme } from "../design/theme";
@@ -16,24 +17,39 @@ import { accents, GUTTER, radius, space } from "../design/tokens";
  */
 export function Home() {
   const morph = useReady();
+  const insets = useSafeAreaInsets();
   const tools = (morph.snapshot?.spec.navigation ?? [])
     .map((id) => morph.snapshot?.spec.tools.find((t) => t.id === id))
     .filter((t): t is Tool => t?.status === "active");
 
+  if (tools.length === 0) return <EmptyHome />;
   return (
     <View style={{ flex: 1 }}>
       <ScreenScroll bottomInset={96}>
         <TopBar />
-        {morph.sync === "offline" && (
-          <Txt variant="footnote" tone="tertiary">
-            Sem conexão: mostrando o que está salvo no aparelho.
-          </Txt>
-        )}
-        {tools.length === 0 ? <Empty /> : <WithTools tools={tools} />}
+        <OfflineNote />
+        <WithTools tools={tools} />
       </ScreenScroll>
-      <Composer placeholder={tools.length === 0 ? "Fale ou digite algo…" : "Pergunte ou crie algo…"} />
+      <View style={[styles.bottomComposer, { paddingBottom: insets.bottom + space.sm }]}>
+        <Composer placeholder="Pergunte ou crie algo…" />
+      </View>
     </View>
   );
+}
+
+function OfflineNote() {
+  const morph = useReady();
+  if (morph.sync !== "offline") return null;
+  return (
+    <Txt variant="footnote" tone="tertiary">
+      Sem conexão: mostrando o que está salvo no aparelho.
+    </Txt>
+  );
+}
+
+/** A criação por IA ainda não existe: tocar explica quando chega. */
+function soon() {
+  Alert.alert("Em breve", "Criar e mudar ferramentas conversando com a IA chega no passo 6 do plano.");
 }
 
 function TopBar() {
@@ -59,24 +75,32 @@ function TopBar() {
 
 const EXAMPLES = ["Quero controlar meus treinos", "Acompanhar meus projetos", "Organizar minha próxima viagem"];
 
-function Empty() {
+/** Mockup 1: app vazio. Proporções medidas no mockup (título a ~33% da altura, caixa a ~64%). */
+function EmptyHome() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   return (
-    <View style={{ gap: space.xxl, marginTop: space.xxl * 2 }}>
-      <Txt variant="largeTitle" style={{ fontSize: 34, fontWeight: "500", lineHeight: 40 }}>
-        O que vamos{"\n"}criar hoje?
-      </Txt>
-      <View style={{ gap: space.sm }}>
-        <Txt variant="footnote" tone="tertiary">
-          Exemplos
-        </Txt>
-        {EXAMPLES.map((e) => (
-          <View key={e} style={[styles.example, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Txt variant="footnote" tone="tertiary">
-              {e}
-            </Txt>
-          </View>
-        ))}
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top + space.lg, paddingHorizontal: GUTTER }}>
+      <TopBar />
+      <OfflineNote />
+      <View style={{ position: "absolute", top: height * 0.31, left: GUTTER, right: GUTTER }}>
+        <Txt style={styles.bigTitle}>O que vamos{"\n"}criar hoje?</Txt>
+      </View>
+      <View style={{ position: "absolute", top: height * 0.62, left: GUTTER, right: GUTTER, gap: space.xl }}>
+        <Composer placeholder="Fale ou digite algo…" />
+        <View style={{ gap: space.sm }}>
+          <Txt variant="footnote" tone="secondary">
+            Exemplos
+          </Txt>
+          {EXAMPLES.map((e) => (
+            <Tap key={e} onPress={soon} haptic={false} style={[styles.example, { backgroundColor: colors.surfaceStrong }]}>
+              <Txt variant="footnote" style={{ color: colors.text, opacity: 0.82 }}>
+                {e}
+              </Txt>
+            </Tap>
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -91,7 +115,9 @@ function WithTools({ tools }: { tools: Tool[] }) {
   return (
     <View style={{ gap: space.xl }}>
       <View style={{ gap: space.xs }}>
-        <Txt variant="largeTitle">{greeting(new Date())}</Txt>
+        <Txt variant="title" style={{ fontSize: 26, fontWeight: "600" }}>
+          {greeting(new Date())}
+        </Txt>
         <Txt tone="secondary">Suas ferramentas</Txt>
       </View>
       <View style={styles.grid}>
@@ -118,7 +144,7 @@ function ToolCard({ tool }: { tool: Tool }) {
   const accent = accents[tool.accent];
   const { colors } = useTheme();
   return (
-    <Tap onPress={() => router.push({ pathname: "/s/[screen]", params: { screen: tool.home } })} style={styles.cell}>
+    <Tap onPress={() => openScreen(tool.home)} style={styles.cell}>
       <View style={[styles.toolCard, { borderColor: colors.border }]}>
         <LinearGradient colors={[accent.dark, accent.soft]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
         <View style={[styles.toolIcon, { backgroundColor: "rgba(255,255,255,0.14)" }]}>
@@ -139,33 +165,33 @@ function ToolCard({ tool }: { tool: Tool }) {
   );
 }
 
-/** Caixa de pedido (mockups 1 e 4). Desativada até a IA existir (passo 6). */
+/** Caixa de pedido (mockups 1 e 4). Até a IA existir (passo 6), tocar só explica. */
 function Composer({ placeholder }: { placeholder: string }) {
-  const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
+  const { colors, scheme } = useTheme();
   return (
-    <View style={[styles.composerWrap, { paddingBottom: insets.bottom + space.sm, backgroundColor: colors.background }]}>
-      <View style={[styles.composer, { backgroundColor: colors.surfaceStrong, borderColor: colors.border }]}>
-        <UiIcon name="plus" size={20} color={colors.textTertiary} />
-        <TextInput editable={false} placeholder={placeholder} placeholderTextColor={colors.textTertiary} style={{ flex: 1, fontSize: 16 }} />
-        <UiIcon name="microphone-outline" size={20} color={colors.textTertiary} />
+    <Tap onPress={soon} haptic={false} style={[styles.composer, { backgroundColor: colors.surfaceStrong, borderColor: colors.border }]}>
+      <View style={[styles.plus, { backgroundColor: scheme === "dark" ? "rgba(255,255,255,0.88)" : "#0B0B0F" }]}>
+        <UiIcon name="plus" size={18} color={scheme === "dark" ? "#0B0B0F" : "#FFFFFF"} />
       </View>
-      <Txt variant="caption" tone="tertiary" style={{ textAlign: "center" }}>
-        A criação com IA chega no passo 6.
+      <Txt variant="callout" tone="secondary" style={{ flex: 1, fontWeight: "400" }}>
+        {placeholder}
       </Txt>
-    </View>
+      <UiIcon name="microphone-outline" size={20} color={colors.text} />
+    </Tap>
   );
 }
 
 const styles = StyleSheet.create({
   topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  avatar: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
+  avatar: { width: 34, height: 34, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.18)" },
   example: { alignSelf: "flex-start", paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   cell: { width: "48.5%" },
   toolCard: { height: 150, borderRadius: radius.lg, overflow: "hidden", padding: space.lg, justifyContent: "space-between", borderWidth: StyleSheet.hairlineWidth },
   toolIcon: { width: 40, height: 40, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
   soon: { flexDirection: "row", alignItems: "center", gap: space.md, opacity: 0.8 },
-  composerWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: GUTTER, paddingTop: space.sm, gap: space.xs },
-  composer: { flexDirection: "row", alignItems: "center", gap: space.md, height: 52, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: space.lg, opacity: 0.7 },
+  bottomComposer: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: GUTTER, paddingTop: space.sm },
+  composer: { flexDirection: "row", alignItems: "center", gap: space.md, height: 56, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, paddingLeft: 10, paddingRight: space.lg },
+  plus: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
+  bigTitle: { fontSize: 40, lineHeight: 46, fontWeight: "400", letterSpacing: -0.8 },
 });

@@ -36,7 +36,9 @@ export function SectionNode({ node }: { node: N<"section"> }) {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHead}>
-        <Txt variant="headline">{node.title}</Txt>
+        <Txt variant="callout" style={{ fontWeight: "600" }}>
+          {node.title}
+        </Txt>
         {node.action && (
           <Tap onPress={() => run(node.action as string)} style={styles.sectionLink}>
             <Txt variant="footnote" tone="secondary">

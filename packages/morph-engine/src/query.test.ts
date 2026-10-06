@@ -69,6 +69,8 @@ test("'Treino de hoje' encontra o treino com a data de hoje e conta as séries",
   assert.equal(item?.id, hoje.id);
   const meta = resolveValue(hero.meta, { ...ctx, item });
   assert.equal(formatResolved(meta, NOW), "3 séries");
+  const umaSerie = { ...ctx, records: new RecordIndex([hoje, s1]) };
+  assert.equal(formatResolved(resolveValue(hero.meta, { ...umaSerie, item }), NOW), "1 série");
 });
 
 test("resumo da semana: treinos, volume (calculado) e progresso", () => {

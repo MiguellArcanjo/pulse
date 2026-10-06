@@ -78,6 +78,11 @@ Engine (`morph-engine`):
 - Níveis (`permissions.ts`): criar/alterar = SAFE_ACTION; arquivar, remover componente,
   tirar da navegação = CONFIRM; apagar registro = CONFIRM. Nenhuma operação apaga dados.
 
+Outras regras do protocolo:
+- Agregado com `noun` ({one, other}) escreve singular/plural: "1 série", "3 séries".
+- Parâmetros de tela não podem se chamar `screen`, `params` ou `screenid`: são reservados pela
+  navegação do app (React Navigation descarta `screen`). A rota do app é `s/[screenId]`.
+
 Regras de segurança dos dados:
 - Campo novo não pode ser obrigatório; campo existente não pode virar obrigatório; tipo de
   campo não muda; id de campo arquivado nunca é reaproveitado (os dados antigos usam o id).

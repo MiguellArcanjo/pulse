@@ -140,16 +140,10 @@ export const criarTreinos = {
             title: t("Treino de hoje"),
             subtitle: { kind: "field", path: ["nome"] },
             meta: {
-              kind: "join",
-              separator: " ",
-              parts: [
-                {
-                  kind: "aggregate",
-                  fn: "count",
-                  query: { entity: "serie", where: [{ op: "eq", field: "treino", value: { kind: "item_id" } }] },
-                },
-                t("séries"),
-              ],
+              kind: "aggregate",
+              fn: "count",
+              noun: { one: "série", other: "séries" },
+              query: { entity: "serie", where: [{ op: "eq", field: "treino", value: { kind: "item_id" } }] },
             },
             action: "abrir_treino",
             empty: { title: "Nenhum treino hoje", action: "novo_treino" },

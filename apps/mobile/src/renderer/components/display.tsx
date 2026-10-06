@@ -62,9 +62,13 @@ export function HeroCardNode({ node }: { node: N<"hero_card"> }) {
       <Surface glow style={styles.hero}>
         <View style={{ flex: 1, gap: 2 }}>
           <Txt variant="headline">{title}</Txt>
-          {subtitle && <Txt variant="callout">{subtitle}</Txt>}
+          {subtitle && (
+            <Txt variant="footnote" tone="secondary" style={{ marginTop: space.xs }}>
+              {subtitle}
+            </Txt>
+          )}
           {meta && (
-            <Txt variant="footnote" tone="secondary">
+            <Txt variant="footnote" tone="tertiary">
               {meta}
             </Txt>
           )}

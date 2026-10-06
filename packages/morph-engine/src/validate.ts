@@ -28,6 +28,8 @@ export function validateSpec(spec: AppSpec): Issue[] {
 }
 
 const MAX_DEPTH = 12;
+/** Nomes que a navegação do app (Expo Router / React Navigation) usa por conta própria. */
+const RESERVED_PARAMS = ["screen", "params", "screenid"];
 const MAX_FORMULA_DEPTH = 4;
 
 /** Tipo efetivo de um campo de sistema. */
@@ -280,6 +282,8 @@ class Validator {
     const params = new Set<string>();
     (screen.params ?? []).forEach((p, i) => {
       if (params.has(p.id)) this.add("duplicate_id", `parâmetro "${p.id}" repetido`, [...path, "params", i]);
+      if (RESERVED_PARAMS.includes(p.id))
+        this.add("reserved_id", `"${p.id}" é um nome reservado pela navegação do app`, [...path, "params", i, "id"]);
       params.add(p.id);
       if (!this.entities.has(p.entity)) this.add("not_found", `entidade "${p.entity}" não existe`, [...path, "params", i, "entity"]);
     });

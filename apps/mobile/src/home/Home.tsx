@@ -132,17 +132,18 @@ function WithTools({ tools }: { tools: Tool[] }) {
           ))}
         </View>
       </HomeMotion>
-      <Surface style={styles.soon}>
-        <UiIcon name="timeline-clock-outline" size={20} color="#888" />
-        <View style={{ flex: 1 }}>
-          <Txt variant="callout" tone="secondary">
-            Evolução
-          </Txt>
-          <Txt variant="footnote" tone="tertiary">
-            A linha do tempo do seu app chega no passo 5.
-          </Txt>
-        </View>
-      </Surface>
+      <Tap onPress={() => router.push("/evolution")}>
+        <Surface style={styles.evolution}>
+          <UiIcon name="timeline-clock-outline" size={22} color={accents.violet.main} />
+          <View style={{ flex: 1 }}>
+            <Txt variant="callout">Evolução</Txt>
+            <Txt variant="footnote" tone="secondary">
+              Como o seu app mudou ao longo do tempo
+            </Txt>
+          </View>
+          <UiIcon name="chevron-right" size={20} color="#777" />
+        </Surface>
+      </Tap>
     </View>
   );
 }
@@ -196,7 +197,7 @@ const styles = StyleSheet.create({
   cell: { width: "48.5%" },
   toolCard: { height: 150, borderRadius: radius.lg, overflow: "hidden", padding: space.lg, justifyContent: "space-between", borderWidth: StyleSheet.hairlineWidth },
   toolIcon: { width: 40, height: 40, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
-  soon: { flexDirection: "row", alignItems: "center", gap: space.md, opacity: 0.8 },
+  evolution: { flexDirection: "row", alignItems: "center", gap: space.md },
   bottomComposer: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: GUTTER, paddingTop: space.sm },
   composer: { flexDirection: "row", alignItems: "center", gap: space.md, height: 56, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, paddingLeft: 10, paddingRight: space.lg },
   plus: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },

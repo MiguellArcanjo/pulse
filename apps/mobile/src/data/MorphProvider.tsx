@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
-import { ApiError, MorphApi, pull, upsertLocal, type RecordRow, type Snapshot } from "@morph/client";
+import { ApiError, MorphApi, pull, upsertLocal, type EvolutionEvent, type RecordRow, type Snapshot } from "@morph/client";
 import { diffSpecs, RecordIndex, type RecordData, type SpecDiff } from "@morph/engine";
 import { clearSession, loadSession, loadSnapshot, saveSession, saveSnapshot } from "./storage";
 
@@ -33,6 +33,10 @@ type MorphActions = {
   createRecord(entity: string, data: RecordData): Promise<RecordRow>;
   updateRecord(id: string, data: RecordData): Promise<RecordRow>;
   deleteRecord(id: string): Promise<void>;
+  /** Linha do tempo do Evolution (vem do servidor). */
+  evolution(): Promise<{ events: EvolutionEvent[]; counts: { tools: number; automations: number; integrations: number } }>;
+  /** Desfazer: volta ao conteúdo da versão indicada (gera uma versão nova) e sincroniza. */
+  restore(version: number): Promise<void>;
 };
 
 const Ctx = createContext<(MorphState & MorphActions) | null>(null);
@@ -139,6 +143,15 @@ export function MorphProvider({ children }: { children: ReactNode }) {
       refresh,
       createRecord: (entity: string, data: RecordData) => write((a) => a.createRecord(entity, data)),
       updateRecord: (id: string, data: RecordData) => write((a) => a.updateRecord(id, data)),
+      evolution: async () => {
+        if (!api.current) throw new Error("sem sessão");
+        return api.current.evolution();
+      },
+      restore: async (version: number) => {
+        if (!api.current) throw new Error("sem sessão");
+        await api.current.restore(version);
+        await refresh();
+      },
       deleteRecord: async (id: string) => {
         if (!api.current) throw new Error("sem sessão");
         await api.current.deleteRecord(id);

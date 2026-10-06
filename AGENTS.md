@@ -94,8 +94,9 @@ Antes de entregar: `pnpm typecheck` e `pnpm test` verdes.
 - Passos 0–3 concluídos e validados no iPhone (2026-10-06): servidor na Heroku
   (https://morph-miguel-98e2fde49277.herokuapp.com, app dev client
   instalado. Último commit `e8ce891`.
-- Passo 4 (Motion) validado no iPhone; app spec na versão 3 (RPE). Não commitado.
-- Próximo: passo 5 (Evolution: linha do tempo + desfazer).
+- Passos 4 (Motion) e 5 (Evolution + desfazer) validados no iPhone.
+- Próximo: passo 6 (IA). Antes de codar: comparar OpenAI, Claude e Gemini na documentação
+  oficial e o dono escolhe.
 - Deploy na Heroku: o dono clica em Deploy → Deploy Branch (main) no site; o script de dev
   (`pnpm morph`, token em apps/server/.data) já está pareado com a Heroku.
 - O iPhone fala com o servidor da Heroku (não com o PC). O servidor local serve para testes

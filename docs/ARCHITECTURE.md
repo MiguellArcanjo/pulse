@@ -191,6 +191,16 @@ PGlite em desenvolvimento e testes ([docs](https://pglite.dev/docs/api)).
   skipEntering`). Destaque vale por 10 s após a mudança chegar.
 - Puxar para atualizar em todas as telas. Validado no iPhone: RPE surgindo na sessão aberta.
 
+## 4.2.2 Evolution (passo 5)
+
+- Tela `apps/mobile/src/app/evolution.tsx` (mockup 10): filtro Semana/Mês/Ano, linha do tempo
+  com título por tipo de evento (`evolution/labels.ts`), resumo da mudança, contadores reais
+  (ferramentas, automações, integrações).
+- Tocar num evento abre o detalhe com **Desfazer** (sempre com confirmação). Desfazer um evento
+  antigo avisa quantas mudanças posteriores também voltam. Desfazer também pode ser desfeito.
+- Dados vêm do servidor (`GET /v1/evolution`); sem conexão a tela avisa, não inventa.
+- O "+" do mockup 10 ficou de fora: função não definida.
+
 ## 4.3 Deploy na Heroku
 
 - `Procfile` roda o servidor direto em TypeScript (Node 22, `engines`).
@@ -229,7 +239,7 @@ funcional, persistente e visualmente coerente enquanto o usuário a usa.*
 | 2 | ✅ `apps/server`: Postgres, migrations, versões da Spec, registros, Evolution, acesso por token | aplica e desfaz changeset pela API |
 | 3 | ✅ Mobile: Design System + renderer + uso real (salvar dados). Novo dev client (Reanimated) | Spec salva vira tela usável no iPhone |
 | 4 | ✅ Motion Engine (RPE surge dentro da tela) | transformação animada |
-| 5 | Evolution + desfazer | linha do tempo real |
+| 5 | ✅ Evolution + desfazer | linha do tempo real |
 | 6 | Escolha da IA + `packages/ai` + router + tela "O que vamos criar hoje?" com etapas reais | fluxo completo de 12 passos |
 
 Do 3 ao 5, changesets são aplicados por **script de desenvolvimento** (fora do app). Nada de

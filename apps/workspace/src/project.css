@@ -1,0 +1,84 @@
+/* ---------- projeto aberto · visão geral (mockup) ---------- */
+.project-view { display: grid; gap: 18px; }
+.pv-header { display: grid; gap: 12px; }
+.crumbs { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
+.crumbs .link { padding: 0; font-size: 13px; }
+.crumbs span { color: var(--text); }
+
+.pv-title-row { display: flex; align-items: center; gap: 14px; }
+.pv-title { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.pv-name { display: flex; align-items: center; gap: 12px; }
+.pv-name h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.6px; }
+.pv-url { display: inline-flex; align-items: center; gap: 6px; color: #7d97ff; text-decoration: none; font-size: 13.5px; width: fit-content; }
+.pv-url:hover { color: #a5b6ff; }
+.pv-desc { color: #c3cad8; font-size: 14.5px; line-height: 1.5; max-width: 900px; }
+
+.status-chip.as-button { cursor: pointer; }
+.status-chip.as-button:hover { border-color: var(--line-2); background: #111726; }
+
+.pv-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; margin-top: 2px; }
+.pv-tabs::-webkit-scrollbar { display: none; }
+.pv-tabs button { display: inline-flex; align-items: center; gap: 7px; background: none; border: 0; border-radius: 0; color: var(--muted); font-size: 14px; padding: 10px 12px; white-space: nowrap; border-bottom: 2px solid transparent; }
+.pv-tabs button.on { color: #fff; border-bottom-color: #4f63ff; }
+.pv-tabs button[aria-disabled] { opacity: 0.5; cursor: default; }
+.pv-tabs em { font-style: normal; font-size: 10px; color: var(--faint); border: 1px solid var(--line-2); border-radius: 6px; padding: 1px 6px; }
+
+.pv-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.pv-main { display: grid; gap: 16px; min-width: 0; }
+.pv-side { display: grid; gap: 14px; position: sticky; top: 84px; }
+
+/* continue de onde parou */
+.pv-continue {
+  border-radius: var(--radius); padding: 20px; display: grid; gap: 14px; border: 1px solid #2a3c7a;
+  background: radial-gradient(130% 150% at 0% 0%, #1a2760 0%, #121a35 55%, #0e1422 100%);
+  box-shadow: inset 0 0 0 1px #4f63ff14, 0 12px 34px #00000040;
+}
+.pv-continue.empty { grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; }
+.pv-continue-icon { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; color: #a5b6ff; background: #4f63ff1f; border: 1px solid #4f63ff33; }
+.pv-continue.empty h2 { font-size: 18px; margin-bottom: 4px; }
+.pv-continue-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.stage-pill { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: #a5b6ff; background: #4f63ff1a; border: 1px solid #4f63ff40; border-radius: 7px; padding: 4px 10px; }
+.stage-pill .dot { background: var(--blue); }
+.stage-pill.done { color: #86efac; background: #22c55e17; border-color: #22c55e40; }
+.stage-pill.done .dot { background: var(--green); }
+.pv-continue-title { display: inline-flex; align-items: center; gap: 9px; background: none; border: 0; padding: 0; color: #fff; font-size: 21px; font-weight: 700; letter-spacing: -0.3px; text-align: left; width: fit-content; }
+.pv-continue-title:hover { color: #cdd6ff; }
+.pv-continue-sub { color: var(--muted); font-size: 13px; }
+.pv-continue-obj { color: #c3cad8; font-size: 14px; line-height: 1.5; }
+.pv-continue-progress { display: flex; align-items: center; gap: 12px; }
+.pv-continue-progress .bar { flex: 1; height: 8px; border-radius: 99px; background: #0d1428; overflow: hidden; }
+.pv-continue-progress .bar span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #4f63ff, #8b9cff); }
+.pv-continue-progress em { font-style: normal; font-size: 14px; font-weight: 700; color: #cdd6ff; min-width: 42px; text-align: right; }
+.pv-continue-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pv-counts { display: flex; gap: 20px; flex-wrap: wrap; }
+.pv-count { display: flex; align-items: baseline; gap: 6px; }
+.pv-count strong { font-size: 17px; color: var(--text); }
+.pv-count small { color: var(--muted); font-size: 12.5px; }
+
+.count-badge { font-size: 12px; font-weight: 700; color: #fff; background: #ef4444; border-radius: 99px; padding: 1px 8px; vertical-align: middle; margin-left: 4px; }
+
+/* atividade recente */
+.pv-timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.pv-timeline li { display: flex; align-items: flex-start; gap: 12px; padding: 10px 2px; border-top: 1px solid var(--line); }
+.pv-timeline li:first-child { border-top: 0; }
+.pv-timeline-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; margin-top: 1px; }
+.pv-timeline-body { display: grid; gap: 2px; text-align: left; font-size: 14px; color: var(--text); min-width: 0; }
+.pv-timeline-body small { color: var(--muted); font-size: 12px; }
+.link-reset { background: none; border: 0; padding: 0; border-radius: 6px; cursor: pointer; }
+.link-reset:hover span:first-child { color: #a5b6ff; }
+
+/* ações rápidas */
+.pv-actions { display: grid; gap: 6px; }
+.pv-actions button { display: flex; align-items: center; gap: 10px; background: var(--card-2); border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 11px 13px; font-size: 13.5px; text-align: left; }
+.pv-actions button:hover:not([aria-disabled]):not(:disabled) { border-color: #33478f; background: #141d31; }
+.pv-actions button[aria-disabled], .pv-actions button:disabled { opacity: 0.5; cursor: default; }
+.pv-actions button em { margin-left: auto; font-style: normal; font-size: 10px; color: var(--faint); border: 1px solid var(--line-2); border-radius: 6px; padding: 1px 6px; }
+
+@media (max-width: 1150px) {
+  .pv-body { grid-template-columns: minmax(0, 1fr); }
+  .pv-side { position: static; }
+}
+@media (max-width: 640px) {
+  .pv-continue.empty { grid-template-columns: 1fr; }
+  .pv-continue-foot { flex-direction: column; align-items: stretch; }
+}

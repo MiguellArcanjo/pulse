@@ -1,0 +1,45 @@
+/* ---------- diálogos de formulário no tema HackerBot ----------
+   Substitui o visual antigo do FormDialog (Editar projeto, Configurações, nova investigação,
+   registro, finding). O assistente "Novo projeto" tem o seu próprio estilo (dialog.wizard). */
+dialog.hb-dialog {
+  width: min(560px, 95vw); max-height: 90vh; padding: 0;
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--line-2); border-radius: 16px;
+  box-shadow: 0 30px 80px #000c; overflow: hidden;
+}
+dialog.hb-dialog::backdrop { background: #050912bb; backdrop-filter: blur(3px); }
+dialog.hb-dialog > form { display: flex; flex-direction: column; max-height: 90vh; min-height: 0; }
+
+.hb-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; border-bottom: 1px solid var(--line); margin: 0; flex-shrink: 0; }
+.hb-dialog header h2 { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; }
+.hb-dialog header button { background: none; border: 0; color: var(--muted); font-size: 22px; line-height: 1; padding: 2px 8px; border-radius: 8px; }
+.hb-dialog header button:hover:not(:disabled) { background: #ffffff0d; color: #fff; }
+
+.hb-dialog fieldset { border: 0; margin: 0; padding: 20px 22px; display: grid; gap: 16px; min-width: 0; flex: 1 1 auto; overflow-y: auto; }
+.hb-dialog label { display: grid; gap: 6px; font-size: 13px; color: var(--text); }
+.hb-dialog label small { display: block; color: var(--faint); font-size: 12px; line-height: 1.5; }
+.hb-dialog input, .hb-dialog select, .hb-dialog textarea {
+  width: 100%; background: #0a101c; border: 1px solid var(--line-2); border-radius: 9px;
+  padding: 10px 12px; color: var(--text); min-width: 0;
+}
+.hb-dialog textarea { resize: vertical; }
+.hb-dialog input:focus, .hb-dialog select:focus, .hb-dialog textarea:focus { border-color: #4f63ff; outline: none; box-shadow: 0 0 0 3px #4f63ff26; }
+.hb-dialog .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.hb-dialog .check { display: flex; align-items: center; gap: 9px; line-height: 1.5; }
+.hb-dialog .check input { width: auto; accent-color: #4f63ff; }
+.hb-dialog .evidence-options { border: 1px solid var(--line-2); border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px; }
+.hb-dialog .evidence-options legend { padding: 0 6px; font-size: 12px; color: var(--muted); }
+.hb-dialog .muted { color: var(--muted); font-size: 12.5px; line-height: 1.6; }
+
+.hb-dialog .error { margin: 0 22px 2px; background: #2c1a20; border: 1px solid #734247; color: #ffc0bc; border-radius: 10px; padding: 12px 14px; line-height: 1.6; }
+
+.hb-dialog footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line); margin: 0; flex-shrink: 0; }
+.hb-dialog footer button { border-radius: 10px; padding: 10px 18px; }
+.hb-dialog footer .btn-ghost { background: #ffffff08; border: 1px solid #ffffff2a; color: var(--text); }
+.hb-dialog footer .btn-ghost:hover:not(:disabled) { background: #ffffff12; }
+.hb-dialog footer .primary { background: linear-gradient(180deg, #5468ff, #3f50f0); border: 0; color: #fff; font-weight: 600; box-shadow: 0 8px 22px #4f63ff40; }
+.hb-dialog footer .primary:hover:not(:disabled) { background: linear-gradient(180deg, #6576ff, #4a5bf5); }
+
+@media (max-width: 560px) {
+  .hb-dialog .columns { grid-template-columns: 1fr; }
+}

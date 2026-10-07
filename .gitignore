@@ -1,6 +1,7 @@
 # Node
 node_modules/
 dist/
+apps/desktop/release/
 *.tsbuildinfo
 
 # Mobile (gerado pelo expo prebuild no CI)

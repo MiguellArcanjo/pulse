@@ -1,4 +1,12 @@
-# Morph: arquitetura
+# Arquitetura: transição para Security Research Workspace
+
+**Direção aprovada em 2026-10-06:** o Morph foi encerrado. O novo produto tem pesquisa
+black-box como fluxo principal e Claude como parceiro durante a investigação, sem exigir
+repositório. A especificação ativa e o estado da implementação estão em [RESEARCH.md](RESEARCH.md).
+O conteúdo abaixo documenta a base anterior para orientar a extração incremental de infraestrutura.
+Não implemente novas funcionalidades de geração de apps do Morph.
+
+## Histórico: Morph
 
 > "O software se constrói e evolui ao redor do usuário."
 > Revisão 1: 2026-10-06. Substitui por completo o antigo Pulse (apagado nesta data).
@@ -55,6 +63,9 @@ Regras de dependência: `protocol` não depende de nada do projeto; `engine` só
 `ai` não conhece banco nem UI; `mobile` nunca importa `ai` nem fala com fornecedor de IA.
 
 ## 2. Morph Protocol (v1, implementado no passo 1)
+
+Protocolo do produto novo: `apps/server/src/research/schema.ts`, descrito em `RESEARCH.md` §2.
+Ele é independente de AppSpec, telas, componentes e do provider de IA legado.
 
 Código: `packages/morph-protocol/src` (schemas Zod) e `packages/morph-engine/src`.
 
@@ -273,6 +284,12 @@ Fases seguintes (só depois da base sólida): 2 Memory/Observer/sugestões · 3 
 Context Engine, notificações · 4 Skills e integrações · 5 UI adaptativa avançada.
 
 ## 7. Decisões
+
+Decisões atuais: R1 black-box primeiro; R2 repositório opcional; R3 Claude vinculado à investigação,
+não apenas a correções; R4 banco novo local, sem migrar dados Morph implicitamente; R5 nenhuma
+execução ativa até existir o executor com validação de política e isolamento; R6 primeira entrega
+incremental é o fluxo manual na interface React local, antes de empacotar o desktop e integrar PTY.
+Detalhes e decisões pendentes em `RESEARCH.md` §7. As escolhas M abaixo são históricas.
 
 | # | Decisão | Escolha |
 |---|---|---|

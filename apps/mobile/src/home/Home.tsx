@@ -20,6 +20,7 @@ import { accents, GUTTER, radius, space } from "../design/tokens";
 export function Home() {
   const morph = useReady();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const tools = (morph.snapshot?.spec.navigation ?? [])
     .map((id) => morph.snapshot?.spec.tools.find((t) => t.id === id))
     .filter((t): t is Tool => t?.status === "active");
@@ -27,12 +28,13 @@ export function Home() {
   if (tools.length === 0) return <EmptyHome />;
   return (
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-      <ScreenScroll bottomInset={96} onRefresh={() => void morph.refresh()} refreshing={morph.sync === "syncing"}>
+      <ScreenScroll onRefresh={() => void morph.refresh()} refreshing={morph.sync === "syncing"}>
         <TopBar />
         <OfflineNote />
         <WithTools tools={tools} />
       </ScreenScroll>
-      <View style={[styles.bottomComposer, { paddingBottom: insets.bottom + space.sm }]}>
+      {/* No fluxo da tela (não absoluto): assim sobe junto com o teclado. */}
+      <View style={[styles.bottomComposer, { paddingBottom: insets.bottom + space.sm, backgroundColor: colors.background }]}>
         <Composer placeholder="Pergunte ou crie algo…" />
       </View>
     </KeyboardAvoidingView>
@@ -225,7 +227,7 @@ const styles = StyleSheet.create({
   toolCard: { height: 150, borderRadius: radius.lg, overflow: "hidden", padding: space.lg, justifyContent: "space-between", borderWidth: StyleSheet.hairlineWidth },
   toolIcon: { width: 40, height: 40, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
   evolution: { flexDirection: "row", alignItems: "center", gap: space.md },
-  bottomComposer: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: GUTTER, paddingTop: space.sm },
+  bottomComposer: { paddingHorizontal: GUTTER, paddingTop: space.sm },
   composer: { flexDirection: "row", alignItems: "center", gap: space.md, height: 56, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, paddingLeft: 10, paddingRight: space.lg },
   plus: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
   bigTitle: { fontSize: 40, lineHeight: 46, fontWeight: "400", letterSpacing: -0.8 },

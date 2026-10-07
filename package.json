@@ -3,6 +3,8 @@
   "private": true,
   "packageManager": "pnpm@10.16.1",
   "scripts": {
+    "desktop": "pnpm --filter @research/workspace build && pnpm --filter @research/desktop start",
+    "research": "pnpm --filter @research/workspace build && node --experimental-strip-types --no-warnings=ExperimentalWarning apps/server/src/research/main.ts",
     "iniciar": "concurrently -n server,metro -c cyan,green \"pnpm dev:server\" \"pnpm dev:mobile\"",
     "dev:server": "pnpm --filter @morph/server dev",
     "dev:mobile": "pnpm --filter @morph/mobile start",

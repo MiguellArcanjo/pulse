@@ -1,3 +1,8 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Pacotes que podem rodar script de instalação (pnpm 10 bloqueia os demais por padrão).
+onlyBuiltDependencies:
+  - electron
+  - esbuild
